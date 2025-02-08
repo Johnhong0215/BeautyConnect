@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { createInitialProfile } from '../utils/auth';
+import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type AuthContextType = {
   session: Session | null;
@@ -13,19 +16,63 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+// Add this type for minimal session data
+interface MinimalSession {
+  access_token: string;
+  refresh_token: string;
+  user: {
+    id: string;
+    email: string;
+  };
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsLoading(false);
+    const initSession = async () => {
+      try {
+        // Get session from storage first
+        const storedSession = await AsyncStorage.getItem('userSession');
+        if (storedSession) {
+          setSession(JSON.parse(storedSession));
+        }
+
+        // Then check with Supabase
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setSession(currentSession);
+          await AsyncStorage.setItem('userSession', JSON.stringify(currentSession));
+        }
+      } catch (error) {
+        console.error('Session initialization error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log('Auth state changed:', event);
+
+      if (event === 'SIGNED_IN' && newSession) {
+        setSession(newSession);
+        await AsyncStorage.setItem('userSession', JSON.stringify(newSession));
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+        await AsyncStorage.removeItem('userSession');
+        router.replace('/auth/sign-in');
+      } else if (event === 'TOKEN_REFRESHED' && newSession) {
+        setSession(newSession);
+        await AsyncStorage.setItem('userSession', JSON.stringify(newSession));
+      }
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -64,7 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

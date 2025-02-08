@@ -1,5 +1,5 @@
 import { StyleSheet, View, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { Text, Avatar, List, Surface, Button, Modal, Portal, IconButton } from 'react-native-paper';
+import { Text, Avatar, List, Surface, Button, Modal, Portal, IconButton, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { router } from 'expo-router';
@@ -16,6 +16,7 @@ import Animated, {
   runOnJS,
   useAnimatedGestureHandler,
 } from 'react-native-reanimated';
+import { useMode } from '../../src/contexts/ModeContext';
 
 export default function Profile() {
   const { signOut, session } = useAuth();
@@ -24,9 +25,13 @@ export default function Profile() {
   const [guests, setGuests] = useState<any[]>([]);
   const translateY = useSharedValue(0);
   const [isLoading, setIsLoading] = useState(false);
+  const { currentMode, switchMode } = useMode();
+  const [isDesignerRole, setIsDesignerRole] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchProfile();
+    checkDesignerRole();
   }, []);
 
   const fetchProfile = async () => {
@@ -74,6 +79,23 @@ export default function Profile() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkDesignerRole = async () => {
+    if (!session?.user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (error) throw error;
+      setIsDesignerRole(data.role === 'designer');
+    } catch (error) {
+      console.error('Error checking designer status:', error);
     }
   };
 
@@ -216,6 +238,36 @@ export default function Profile() {
     );
   };
 
+  const handleRoleToggle = async () => {
+    if (!session?.user) return;
+    
+    try {
+      setLoading(true);
+      
+      // Check if user has any salons before switching to designer
+      const { data: salons, error: salonError } = await supabase
+        .from('hair_salon')
+        .select('id')
+        .eq('owner_id', session.user.id);
+        
+      if (salonError) throw salonError;
+      
+      if (!salons || salons.length === 0) {
+        router.push('/salon/setup');
+        return;
+      }
+      
+      await switchMode('designer');
+      router.replace('/designer');
+      
+    } catch (error) {
+      console.error('Error switching mode:', error);
+      Alert.alert('Error', 'Failed to switch mode');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView>
@@ -293,6 +345,23 @@ export default function Profile() {
             onPress={() => router.push('/past-appointments')}
           />
         </View>
+
+        {isDesignerRole && (
+          <View style={styles.switchContainer}>
+            <Text>Designer Mode</Text>
+            <Switch
+              value={currentMode === 'designer'}
+              onValueChange={async () => {
+                if (currentMode === 'designer') {
+                  await switchMode('user');
+                  router.replace('/tabs');
+                } else {
+                  await handleRoleToggle();
+                }
+              }}
+            />
+          </View>
+        )}
 
         <Button
           mode="outlined"
@@ -594,5 +663,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     elevation: 9999,
     zIndex: 9999,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
   },
 }); 

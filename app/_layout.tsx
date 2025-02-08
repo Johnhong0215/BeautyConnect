@@ -8,6 +8,7 @@ import LottieView from 'lottie-react-native';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { COLORS } from '../src/constants/theme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ModeProvider } from '../src/contexts/ModeContext';
 
 const theme = {
   ...MD3LightTheme,
@@ -50,9 +51,11 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
           <AuthProvider>
-            <BookingProvider>
-              <Stack screenOptions={{ headerShown: false }} />
-            </BookingProvider>
+            <ModeProvider>
+              <BookingProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+              </BookingProvider>
+            </ModeProvider>
           </AuthProvider>
         </PaperProvider>
       </SafeAreaProvider>
