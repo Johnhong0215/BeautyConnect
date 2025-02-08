@@ -40,7 +40,7 @@ export default function Home() {
       router.push('/booking/guest-list');
     } else {
       router.push({
-        pathname: '/booking/service-selection',
+        pathname: '/booking/select-salon',
         params: { serviceType }
       });
     }

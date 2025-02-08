@@ -1,81 +1,61 @@
 import { StyleSheet, View } from 'react-native';
-import { Text, Button, Card, Chip } from 'react-native-paper';
+import { Text, Button, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { format, parseISO, addMinutes } from 'date-fns';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { COLORS, SPACING } from '../../src/constants/theme';
+import { useBooking } from '../../src/contexts/BookingContext';
+import { useEffect } from 'react';
 
-export default function BookingSuccess() {
-  const params = useLocalSearchParams<{
-    serviceId: string;
-    serviceName: string;
-    duration: string;
-    price: string;
-    date: string;
-    time: string;
-    guestName?: string;
-  }>();
+export default function Success() {
+  const { selectedSalon, selectedService, selectedTimeSlot, resetBooking } = useBooking();
+  const params = useLocalSearchParams<{ appointmentId: string }>();
 
-  const startDateTime = parseISO(`${params.date}T${params.time}`);
-  const endDateTime = addMinutes(startDateTime, parseInt(params.duration));
+  useEffect(() => {
+    if (!selectedSalon || !selectedService || !selectedTimeSlot) {
+      router.replace('/booking/select-salon');
+    }
+  }, [selectedSalon, selectedService, selectedTimeSlot]);
 
-  const handleGoHome = () => {
-    router.replace('/tabs');
+  const handleDone = () => {
+    resetBooking(); // Reset the booking state
+    router.replace('/'); // Go back to home
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.successIcon}>
-        <MaterialCommunityIcons name="check-circle" size={80} color="#4CAF50" />
+      <Surface style={styles.header}>
+        <Text variant="headlineMedium">Booking Confirmed!</Text>
+      </Surface>
+
+      <View style={styles.content}>
+        <Text variant="bodyLarge" style={styles.message}>
+          Your appointment has been successfully booked.
+        </Text>
+        
+        {selectedSalon && (
+          <Text variant="bodyMedium" style={styles.detail}>
+            Salon: {selectedSalon.name}
+          </Text>
+        )}
+        
+        {selectedService && (
+          <Text variant="bodyMedium" style={styles.detail}>
+            Service: {selectedService.name}
+          </Text>
+        )}
+        
+        <Text variant="bodyMedium" style={styles.detail}>
+          Booking reference: {params.appointmentId}
+        </Text>
+
+        <Button 
+          mode="contained" 
+          style={styles.button}
+          onPress={handleDone}
+        >
+          Done
+        </Button>
       </View>
-
-      <Text variant="headlineMedium" style={styles.title}>
-        Booking Confirmed!
-      </Text>
-
-      <Text variant="bodyLarge" style={styles.subtitle}>
-        Your appointment has been successfully booked
-      </Text>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.header}>
-            <Text variant="titleLarge">{params.serviceName}</Text>
-            <Chip
-              mode="flat"
-              textStyle={{ color: 'white' }}
-              style={[styles.statusChip, { backgroundColor: '#4CAF50' }]}
-            >
-              Confirmed
-            </Chip>
-          </View>
-
-          <Text variant="bodyLarge" style={styles.detail}>
-            For: {params.guestName || 'Myself'}
-          </Text>
-
-          <Text variant="bodyLarge" style={styles.detail}>
-            Date: {format(startDateTime, 'MMMM d, yyyy')}
-          </Text>
-          <Text variant="bodyLarge" style={styles.detail}>
-            Time: {format(startDateTime, 'h:mm a')} - {format(endDateTime, 'h:mm a')}
-          </Text>
-          <Text variant="bodyLarge" style={styles.detail}>
-            Duration: {params.duration} minutes
-          </Text>
-          <Text variant="bodyLarge" style={styles.detail}>
-            Price: ${parseFloat(params.price).toFixed(2)}
-          </Text>
-        </Card.Content>
-      </Card>
-
-      <Button
-        mode="contained"
-        onPress={handleGoHome}
-        style={styles.button}
-      >
-        Back to Home
-      </Button>
     </SafeAreaView>
   );
 }
@@ -83,45 +63,28 @@ export default function BookingSuccess() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  successIcon: {
-    alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 20,
-  },
-  title: {
-    textAlign: 'center',
-    color: '#4CAF50',
-    marginBottom: 8,
-  },
-  subtitle: {
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: 32,
-  },
-  card: {
-    marginHorizontal: 20,
-    marginBottom: 16,
+    backgroundColor: COLORS.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.surface,
   },
-  statusChip: {
-    borderRadius: 12,
+  content: {
+    flex: 1,
+    padding: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  message: {
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
   },
   detail: {
-    marginTop: 8,
-    color: '#333',
-  },
-  buttonContainer: {
-    padding: 20,
-    marginTop: 'auto',
+    marginBottom: SPACING.md,
+    textAlign: 'center',
   },
   button: {
-    marginTop: 10,
+    marginTop: SPACING.xl * 2,
+    width: '100%',
   },
 }); 

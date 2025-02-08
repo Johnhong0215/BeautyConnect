@@ -17,18 +17,19 @@ export default function BookingLayout() {
           />
         ),
       }}
-      initialRouteName="index"
     >
       <Stack.Screen
         name="index"
         options={{
           title: 'Book Appointment',
+          headerShown: false
         }}
       />
       <Stack.Screen
-        name="reservation-type"
+        name="select-salon"
         options={{
-          title: 'Reservation Type',
+          title: 'Select Salon',
+          headerShown: false
         }}
       />
       <Stack.Screen
@@ -41,48 +42,19 @@ export default function BookingLayout() {
       <Stack.Screen
         name="date-selection"
         options={{
-          title: 'Select Date',
+          title: 'Select Date'
         }}
       />
       <Stack.Screen
         name="time-selection"
         options={{
-          title: 'Select Time',
-        }}
-      />
-      <Stack.Screen
-        name="guest-list"
-        options={{
-          title: 'Select Guest',
-          headerBackTitle: 'Back'
-        }}
-      />
-      <Stack.Screen
-        name="guest-profile"
-        options={{
-          title: 'Select Guest',
-          headerBackTitle: 'Back'
-        }}
-      />
-      <Stack.Screen
-        name="guest-form"
-        options={{
-          title: 'Guest Information',
-          headerBackTitle: 'Back'
+          title: 'Select Time'
         }}
       />
       <Stack.Screen
         name="confirmation"
         options={{
-          title: 'Confirm Booking',
-        }}
-      />
-      <Stack.Screen
-        name="success"
-        options={{
-          title: 'Booking Confirmed',
-          headerShown: false,
-          gestureEnabled: false,
+          title: 'Confirm Booking'
         }}
       />
     </Stack>

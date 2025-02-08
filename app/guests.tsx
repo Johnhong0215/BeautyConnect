@@ -70,6 +70,14 @@ export default function Guests() {
     });
   };
 
+  const handleGuestSelect = (guestId: string) => {
+    // After selecting guest, always go to salon selection
+    router.push({
+      pathname: '/booking/select-salon',
+      params: { guestId }
+    });
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>

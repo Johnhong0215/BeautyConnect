@@ -1,167 +1,102 @@
 import { useState, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text, Button, ActivityIndicator } from 'react-native-paper';
+import { Text, Surface, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
+import { router } from 'expo-router';
+import { useBooking } from '../../src/contexts/BookingContext';
+import { COLORS, SPACING } from '../../src/constants/theme';
+import { format } from 'date-fns';
 import { supabase } from '../../src/services/supabase';
-import { format, addMonths, isAfter, isBefore, startOfDay, parseISO } from 'date-fns';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
+import { Alert } from 'react-native';
 
-interface MarkedDates {
-  [date: string]: {
-    disabled?: boolean;
-    disableTouchEvent?: boolean;
-    selected?: boolean;
-    selectedColor?: string;
-  };
+interface AvailableDate {
+  available_date: string;
+  has_slots: boolean;
 }
 
 export default function DateSelection() {
-  const params = useLocalSearchParams<{
-    serviceId: string;
-    duration: string;
-    price: string;
-  }>();
-  
+  const { selectedSalon, selectedService } = useBooking();
   const [loading, setLoading] = useState(true);
+  const [availableDates, setAvailableDates] = useState<AvailableDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [markedDates, setMarkedDates] = useState<MarkedDates>({});
-  const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchUnavailableDates();
-  }, []);
+    if (!selectedSalon || !selectedService) {
+      router.replace('/booking/service-selection');
+      return;
+    }
+    fetchAvailableDates();
+  }, [selectedSalon, selectedService]);
 
-  const fetchUnavailableDates = async () => {
+  const fetchAvailableDates = async () => {
     try {
-      // Get all appointments for the next 3 months
-      const startDate = new Date();
-      const endDate = addMonths(startDate, 3);
-      
-      const { data: appointments, error } = await supabase
-        .from('appointments')
-        .select('appointment_date, duration')
-        .gte('appointment_date', startDate.toISOString())
-        .lte('appointment_date', endDate.toISOString())
-        .not('status', 'eq', 'cancelled');
+      setLoading(true);
+      const { data, error } = await supabase.rpc('get_available_dates', {
+        p_salon_id: selectedSalon!.id,
+        p_service_id: selectedService!.id,
+        p_start_date: format(new Date(), 'yyyy-MM-dd'),
+        p_days_ahead: 30
+      });
 
       if (error) throw error;
-
-      // Get business hours
-      const { data: businessHours, error: hoursError } = await supabase
-        .from('business_hours')
-        .select('*');
-
-      if (hoursError) throw hoursError;
-
-      // Process dates and create marked dates object
-      const marked: MarkedDates = {};
-      const today = startOfDay(new Date());
-
-      // Mark past dates as disabled
-      let currentDate = startOfDay(new Date());
-      while (isBefore(currentDate, endDate)) {
-        const dateStr = format(currentDate, 'yyyy-MM-dd');
-        const dayOfWeek = currentDate.getDay();
-        const businessDay = businessHours?.find(h => h.day_of_week === dayOfWeek);
-
-        marked[dateStr] = {
-          disabled: isBefore(currentDate, today) || businessDay?.is_closed,
-          disableTouchEvent: isBefore(currentDate, today) || businessDay?.is_closed,
-        };
-
-        currentDate = new Date(currentDate.setDate(currentDate.getDate() + 1));
-      }
-
-      setMarkedDates(marked);
+      setAvailableDates(data || []);
     } catch (error) {
-      console.error('Error fetching unavailable dates:', error);
+      console.error('Error fetching available dates:', error);
+      Alert.alert('Error', 'Failed to load available dates');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDateSelect = (date: { dateString: string }) => {
-    const dateString = date.dateString;
-    
-    // Clear previous selection and set new one
-    const newMarkedDates = { ...markedDates };
-    
-    // Remove 'selected' from all dates
-    Object.keys(newMarkedDates).forEach(key => {
-      if (newMarkedDates[key].selected) {
-        delete newMarkedDates[key].selected;
-      }
-    });
-
-    // Add new selection
-    newMarkedDates[dateString] = {
-      ...newMarkedDates[dateString],
-      selected: true,
-      selectedColor: '#6200ee',
-    };
-
-    setSelectedDate(dateString);
-    setMarkedDates(newMarkedDates);
-  };
-
-  const handleNext = () => {
-    if (!selectedDate) return;
-
-    const duration = parseInt(params.duration);
-    if (isNaN(duration)) {
-      console.error('Invalid duration:', params.duration);
-      return;
+  const markedDates = availableDates.reduce((acc, date) => {
+    if (date.has_slots) {
+      acc[date.available_date] = {
+        marked: true,
+        dotColor: COLORS.primary,
+        selected: date.available_date === selectedDate,
+        selectedColor: COLORS.primary
+      };
     }
+    return acc;
+  }, {} as any);
 
-    router.push({
-      pathname: '/booking/time-selection',
-      params: {
-        ...params,
-        date: selectedDate, // This is already in YYYY-MM-DD format
-        duration: duration.toString()
-      },
-    });
+  const handleDateSelect = (date: string) => {
+    const selectedDateData = availableDates.find(d => d.available_date === date);
+    if (selectedDateData?.has_slots) {
+      setSelectedDate(date);
+      router.push({
+        pathname: '/booking/time-selection',
+        params: { date }
+      });
+    }
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, styles.centered]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text variant="headlineMedium" style={styles.title}>
-        Select check-in date
-      </Text>
-      
-      <Text variant="bodyMedium" style={styles.subtitle}>
-        Prices on calendar do not include taxes and fees
-      </Text>
+      <Surface style={styles.header}>
+        <Text variant="headlineMedium">Select Date</Text>
+      </Surface>
 
       <Calendar
-        current={format(new Date(), 'yyyy-MM-dd')}
-        minDate={format(new Date(), 'yyyy-MM-dd')}
-        maxDate={format(addMonths(new Date(), 2), 'yyyy-MM-dd')}
-        onDayPress={handleDateSelect}
         markedDates={markedDates}
-        theme={calendarTheme}
+        onDayPress={day => handleDateSelect(day.dateString)}
+        minDate={format(new Date(), 'yyyy-MM-dd')}
+        maxDate={format(new Date().setDate(new Date().getDate() + 30), 'yyyy-MM-dd')}
+        theme={{
+          selectedDayBackgroundColor: COLORS.primary,
+          todayTextColor: COLORS.primary,
+          arrowColor: COLORS.primary,
+        }}
       />
-
-      <View style={styles.buttonContainer}>
-        <Button
-          mode="contained"
-          onPress={handleNext}
-          disabled={!selectedDate}
-          style={styles.button}
-        >
-          Save
-        </Button>
-      </View>
     </SafeAreaView>
   );
 }
@@ -169,57 +104,15 @@ export default function DateSelection() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    padding: SPACING.lg,
     backgroundColor: COLORS.surface,
   },
-  centered: {
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    textAlign: 'center',
-    marginVertical: SPACING.xl,
-    color: COLORS.text,
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  subtitle: {
-    color: '#666',
-    marginHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  buttonContainer: {
-    padding: 20,
-    marginTop: 'auto',
-  },
-  button: {
-    margin: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    paddingVertical: SPACING.sm,
-  },
-  calendar: {
-    borderRadius: 16,
-    margin: SPACING.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-});
-
-const calendarTheme = {
-  backgroundColor: COLORS.surface,
-  calendarBackground: COLORS.surface,
-  textSectionTitleColor: COLORS.textSecondary,
-  selectedDayBackgroundColor: COLORS.primary,
-  selectedDayTextColor: COLORS.surface,
-  todayTextColor: COLORS.primary,
-  dayTextColor: COLORS.text,
-  textDisabledColor: COLORS.disabled,
-  dotColor: COLORS.primary,
-  monthTextColor: COLORS.text,
-  textDayFontSize: 16,
-  textMonthFontSize: 18,
-  textDayHeaderFontSize: 14,
-}; 
+}); 

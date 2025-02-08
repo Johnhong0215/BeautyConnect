@@ -1,185 +1,126 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 import { StyleSheet, ScrollView, View } from 'react-native';
-import { Text, Button, ActivityIndicator, Chip } from 'react-native-paper';
+import { Text, Button, ActivityIndicator, Chip, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getAvailableTimeSlots } from '../../src/utils/availability';
-import { format, parseISO } from 'date-fns';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
+import { useBooking } from '../../src/contexts/BookingContext';
+import { format } from 'date-fns';
+import { COLORS, SPACING } from '../../src/constants/theme';
+
+interface TimeSlot {
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+}
 
 export default function TimeSelection() {
-  const params = useLocalSearchParams<{
-    serviceId: string;
-    duration: string;
-    price: string;
-    date: string;
-  }>();
-
+  const { selectedSalon, selectedService, getAvailableTimeSlots, setSelectedTimeSlot } = useBooking();
+  const params = useLocalSearchParams<{ date: string }>();
   const [loading, setLoading] = useState(true);
-  const [timeSlots, setTimeSlots] = useState<any[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
   useEffect(() => {
-    if (params.date) {
-      fetchTimeSlots();
+    if (!selectedSalon || !selectedService) {
+      router.replace('/booking/select-salon');
+      return;
     }
-  }, [params.date]);
+    fetchTimeSlots();
+  }, [selectedSalon, selectedService]);
 
   const fetchTimeSlots = async () => {
     try {
       setLoading(true);
-      const durationNum = Number(params.duration);
-      
-      if (isNaN(durationNum)) {
-        setTimeSlots([]);
-        return;
-      }
-
-      const slots = await getAvailableTimeSlots(
-        params.date,
-        durationNum
-      );
-
-      setTimeSlots(slots.filter(slot => slot.isAvailable));
+      const slots = await getAvailableTimeSlots(params.date);
+      setTimeSlots(slots);
     } catch (error) {
-      setTimeSlots([]);
+      console.error('Error fetching time slots:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-  };
-
-  const handleConfirm = () => {
-    if (!selectedTime) return;
-
+  const handleTimeSelect = (startTime: string, endTime: string) => {
+    setSelectedTime(startTime);
+    setSelectedTimeSlot({ 
+      start_time: startTime, 
+      end_time: endTime,
+      is_available: true 
+    });
+    
+    // Navigate to confirmation with date
     router.push({
       pathname: '/booking/confirmation',
-      params: {
-        ...params,
-        time: selectedTime,
-      },
+      params: { date: params.date }
     });
   };
 
-  const renderTimeSlots = () => {
-    // Group available slots by time of day
-    const morningSlots = timeSlots.filter(slot => {
+  const groupTimeSlots = () => {
+    const groups: { [key: string]: TimeSlot[] } = {
+      'Morning': [],
+      'Afternoon': [],
+      'Evening': []
+    };
+
+    timeSlots.forEach(slot => {
       const hour = parseInt(slot.start_time.split(':')[0]);
-      return hour < 12;
+      if (hour < 12) {
+        groups['Morning'].push(slot);
+      } else if (hour < 17) {
+        groups['Afternoon'].push(slot);
+      } else {
+        groups['Evening'].push(slot);
+      }
     });
 
-    const afternoonSlots = timeSlots.filter(slot => {
-      const hour = parseInt(slot.start_time.split(':')[0]);
-      return hour >= 12 && hour < 17;
-    });
-
-    const eveningSlots = timeSlots.filter(slot => {
-      const hour = parseInt(slot.start_time.split(':')[0]);
-      return hour >= 17;
-    });
-
-    return (
-      <>
-        {morningSlots.length > 0 && (
-          <>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Morning</Text>
-            <View style={styles.timeGrid}>
-              {morningSlots.map((slot) => (
-                <Chip
-                  key={slot.start_time}
-                  selected={selectedTime === slot.start_time}
-                  onPress={() => handleTimeSelect(slot.start_time)}
-                  style={styles.timeChip}
-                  mode={selectedTime === slot.start_time ? 'flat' : 'outlined'}
-                >
-                  {format(parseISO(`2000-01-01T${slot.start_time}`), 'h:mm a')}
-                </Chip>
-              ))}
-            </View>
-          </>
-        )}
-
-        {afternoonSlots.length > 0 && (
-          <>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Afternoon</Text>
-            <View style={styles.timeGrid}>
-              {afternoonSlots.map((slot) => (
-                <Chip
-                  key={slot.start_time}
-                  selected={selectedTime === slot.start_time}
-                  onPress={() => handleTimeSelect(slot.start_time)}
-                  style={styles.timeChip}
-                  mode={selectedTime === slot.start_time ? 'flat' : 'outlined'}
-                >
-                  {format(parseISO(`2000-01-01T${slot.start_time}`), 'h:mm a')}
-                </Chip>
-              ))}
-            </View>
-          </>
-        )}
-
-        {eveningSlots.length > 0 && (
-          <>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Evening</Text>
-            <View style={styles.timeGrid}>
-              {eveningSlots.map((slot) => (
-                <Chip
-                  key={slot.start_time}
-                  selected={selectedTime === slot.start_time}
-                  onPress={() => handleTimeSelect(slot.start_time)}
-                  style={styles.timeChip}
-                  mode={selectedTime === slot.start_time ? 'flat' : 'outlined'}
-                >
-                  {format(parseISO(`2000-01-01T${slot.start_time}`), 'h:mm a')}
-                </Chip>
-              ))}
-            </View>
-          </>
-        )}
-
-        {timeSlots.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text variant="bodyLarge" style={styles.emptyText}>
-              No available time slots for this date
-            </Text>
-          </View>
-        )}
-      </>
-    );
+    return groups;
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, styles.centered]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
-      </SafeAreaView>
+      </View>
     );
   }
 
+  const groupedSlots = groupTimeSlots();
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text variant="headlineMedium" style={styles.title}>
-        Select Time
-      </Text>
+      <Surface style={styles.header}>
+        <Text variant="headlineMedium">Select Time</Text>
+        <Text variant="titleMedium" style={styles.date}>
+          {format(new Date(params.date), 'MMMM d, yyyy')}
+        </Text>
+      </Surface>
 
-      <ScrollView style={styles.scrollView}>
-        {renderTimeSlots()}
+      <ScrollView style={styles.content}>
+        {Object.entries(groupedSlots).map(([period, slots]) => (
+          slots.length > 0 && (
+            <View key={period} style={styles.section}>
+              <Text variant="titleMedium" style={styles.periodTitle}>{period}</Text>
+              <View style={styles.timeGrid}>
+                {slots.map(slot => (
+                  <Chip
+                    key={slot.start_time}
+                    selected={selectedTime === slot.start_time}
+                    onPress={() => handleTimeSelect(slot.start_time, slot.end_time)}
+                    disabled={!slot.is_available}
+                    style={[
+                      styles.timeChip,
+                      !slot.is_available && styles.unavailable
+                    ]}
+                  >
+                    {format(new Date(`2000-01-01T${slot.start_time}`), 'h:mm a')}
+                  </Chip>
+                ))}
+              </View>
+            </View>
+          )
+        ))}
       </ScrollView>
-
-      <View style={styles.buttonContainer}>
-        <Button
-          mode="contained"
-          onPress={handleConfirm}
-          disabled={!selectedTime}
-          style={styles.button}
-        >
-          Confirm Time
-        </Button>
-      </View>
     </SafeAreaView>
   );
 }
@@ -187,58 +128,40 @@ export default function TimeSelection() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    padding: SPACING.lg,
     backgroundColor: COLORS.surface,
   },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  date: {
+    marginTop: SPACING.sm,
+    color: COLORS.primary,
   },
-  title: {
-    textAlign: 'center',
-    marginVertical: SPACING.xl,
-    color: COLORS.text,
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  scrollView: {
+  content: {
     flex: 1,
+    padding: SPACING.lg,
+  },
+  section: {
+    marginBottom: SPACING.xl,
+  },
+  periodTitle: {
+    marginBottom: SPACING.md,
   },
   timeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: SPACING.lg,
     gap: SPACING.sm,
   },
   timeChip: {
-    borderRadius: BORDER_RADIUS.round,
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.primary,
+    marginBottom: SPACING.sm,
   },
-  selectedChip: {
-    backgroundColor: COLORS.primary,
+  unavailable: {
+    opacity: 0.5,
   },
-  buttonContainer: {
-    padding: SPACING.lg,
-  },
-  button: {
-    margin: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    paddingVertical: SPACING.sm,
-  },
-  sectionTitle: {
-    color: COLORS.textSecondary,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.md,
-    fontSize: 18,
-    fontWeight: '500',
-  },
-  emptyState: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  emptyText: {
-    textAlign: 'center',
   },
 }); 

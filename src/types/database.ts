@@ -50,4 +50,14 @@ export interface Appointment {
   cancellation_reason?: string;
   notes?: string;
   created_at: string;
+}
+
+export interface Salon {
+  id: string;
+  name: string;
+  address: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
 } 

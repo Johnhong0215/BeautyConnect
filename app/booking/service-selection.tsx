@@ -8,6 +8,8 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { ProfileForm } from '../../src/components/ProfileForm';
 import { Profile, Service } from '../../src/types/database';
 import { createInitialProfile } from '../../src/utils/auth';
+import { useBooking } from '../../src/contexts/BookingContext';
+import { Alert } from 'react-native';
 
 interface GuestProfile {
   id: string;
@@ -22,14 +24,34 @@ interface GuestProfile {
 
 export default function ServiceSelection() {
   const { session } = useAuth();
+  const { selectedSalon, setCurrentStep, getAvailableServices, resetBooking, handleServiceSelect } = useBooking();
   const params = useLocalSearchParams<{ serviceType: 'hair' | 'nail', guestId?: string }>();
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<Service[]>([]);
   const [gender, setGender] = useState<'male' | 'female' | null>(null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+
+  const fetchServices = async () => {
+    if (!selectedSalon) return;
+    try {
+      setLoading(true);
+      const servicesData = await getAvailableServices(selectedSalon.id);
+      setServices(servicesData);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      Alert.alert('Error', 'Failed to load services');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchProfileAndServices();
-  }, [params.serviceType, params.guestId]);
+    if (!selectedSalon) {
+      router.replace('/booking/select-salon');
+      return;
+    }
+    fetchServices();
+  }, [selectedSalon]);
 
   const fetchProfileAndServices = async () => {
     try {
@@ -81,21 +103,6 @@ export default function ServiceSelection() {
   const calculatePrice = (service: Service) => {
     if (!gender) return service.price_male;
     return gender === 'female' ? service.price_female : service.price_male;
-  };
-
-  const handleServiceSelect = (service: Service) => {
-    const duration = calculateDuration(service);
-    const price = calculatePrice(service);
-
-    router.push({
-      pathname: '/booking/date-selection',
-      params: { 
-        serviceId: service.id,
-        duration: duration.toString(),
-        price: price.toString(),
-        guestId: params.guestId
-      }
-    });
   };
 
   if (loading) {
