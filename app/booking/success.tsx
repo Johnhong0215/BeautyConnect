@@ -4,17 +4,42 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS, SPACING } from '../../src/constants/theme';
 import { useBooking } from '../../src/contexts/BookingContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/services/supabase';
+import { useAuth } from '../../src/contexts/AuthContext';
 
 export default function Success() {
-  const { selectedSalon, selectedService, selectedTimeSlot, resetBooking } = useBooking();
+  const { session } = useAuth();
+  const { selectedSalon, selectedService, selectedTimeSlot, guestId, resetBooking } = useBooking();
   const params = useLocalSearchParams<{ appointmentId: string }>();
+  const [recipientName, setRecipientName] = useState<string>('');
 
   useEffect(() => {
-    if (!selectedSalon || !selectedService || !selectedTimeSlot) {
-      router.replace('/booking/select-salon');
+    fetchRecipientName();
+  }, []);
+
+  const fetchRecipientName = async () => {
+    if (!session?.user) return;
+    try {
+      if (guestId) {
+        const { data } = await supabase
+          .from('guests')
+          .select('full_name')
+          .eq('id', guestId)
+          .single();
+        setRecipientName(data?.full_name || '');
+      } else {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .single();
+        setRecipientName(data?.full_name || '');
+      }
+    } catch (error) {
+      console.error('Error fetching recipient name:', error);
     }
-  }, [selectedSalon, selectedService, selectedTimeSlot]);
+  };
 
   const handleDone = () => {
     resetBooking(); // Reset the booking state
@@ -30,6 +55,10 @@ export default function Success() {
       <View style={styles.content}>
         <Text variant="bodyLarge" style={styles.message}>
           Your appointment has been successfully booked.
+        </Text>
+        
+        <Text variant="titleMedium" style={styles.detail}>
+          Appointment for: {recipientName}
         </Text>
         
         {selectedSalon && (

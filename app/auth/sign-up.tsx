@@ -1,22 +1,31 @@
 import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { View, StyleSheet, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Button, TextInput, Text } from 'react-native-paper';
-import { useAuth } from '../../src/contexts/AuthContext';
+// Import your Supabase client (ensure you have this configured)
+import { supabase } from '../../src/services/supabase';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const router = useRouter();
 
   const handleSignUp = async () => {
     try {
       setLoading(true);
-      await signUp(email, password);
-      router.replace('/tabs');
-    } catch (error) {
+      // Create the user in Supabase
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        throw error;
+      }
+      // Welcome the user upon successful sign up
+      Alert.alert('Welcome', `Welcome ${email}! Your account has been created successfully.`);
+      // Redirect to the sign-in screen with the email prefilled
+      router.replace(`/auth/sign-in?email=${encodeURIComponent(email)}`);
+    } catch (error: any) {
       console.error(error);
+      Alert.alert('Sign Up Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -76,4 +85,4 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 8,
   },
-}); 
+});

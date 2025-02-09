@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Button, TextInput, Text } from 'react-native-paper';
 import { useAuth } from '../../src/contexts/AuthContext';
 
 export default function SignIn() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Get any passed email and password from the URL query parameters.
+  const params = useLocalSearchParams<{ email?: string; password?: string }>();
+  const [email, setEmail] = useState(params.email ?? '');
+  const [password, setPassword] = useState(params.password ?? '');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const router = useRouter();
 
   const handleSignIn = async () => {
     try {
@@ -76,4 +79,4 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 8,
   },
-}); 
+});

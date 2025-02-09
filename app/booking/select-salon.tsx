@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView, Alert } from 'react-native';
+import { StyleSheet, View, ScrollView, Alert, Linking } from 'react-native';
 import { Text, Card, Button, Surface, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -18,18 +18,42 @@ export default function SelectSalon() {
     longitude: number;
   } | null>(null);
 
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status === 'granted') {
+        loadUserLocationAndSalons();
+      } else {
+        Alert.alert(
+          'Location Permission Required',
+          'Please enable location services to find nearby salons',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Open Settings', 
+              onPress: () => Linking.openSettings() 
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error requesting location:', error);
+    }
+  };
+
+  useEffect(() => {
+    requestLocationPermission();
+  }, []);
+
   const loadUserLocationAndSalons = async () => {
     try {
       setLoading(true);
       
-      // Get user location first
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Please enable location services');
-        return;
-      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
 
-      const location = await Location.getCurrentPositionAsync({});
       setUserLocation({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude
@@ -45,10 +69,6 @@ export default function SelectSalon() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadUserLocationAndSalons();
-  }, []);
 
   const onSalonSelect = (salon: Salon) => {
     handleSalonSelect(salon);

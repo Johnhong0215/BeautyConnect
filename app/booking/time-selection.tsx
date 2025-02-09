@@ -5,21 +5,55 @@ import { Text, Button, ActivityIndicator, Chip, Surface } from 'react-native-pap
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useBooking } from '../../src/contexts/BookingContext';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { format } from 'date-fns';
 import { COLORS, SPACING } from '../../src/constants/theme';
+import { supabase } from '../../src/services/supabase';
 
 interface TimeSlot {
   start_time: string;
   end_time: string;
   is_available: boolean;
+  date: string;
 }
 
 export default function TimeSelection() {
-  const { selectedSalon, selectedService, getAvailableTimeSlots, setSelectedTimeSlot } = useBooking();
+  const { session } = useAuth();
+  const { selectedSalon, selectedService, getAvailableTimeSlots, setSelectedTimeSlot, guestId } = useBooking();
   const params = useLocalSearchParams<{ date: string }>();
   const [loading, setLoading] = useState(true);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [recipientName, setRecipientName] = useState<string>('');
+
+  const fetchRecipientName = async () => {
+    if (!session?.user) return;
+    try {
+      if (guestId) {
+        const { data } = await supabase
+          .from('guests')
+          .select('full_name')
+          .eq('id', guestId)
+          .single();
+        setRecipientName(data?.full_name || '');
+      } else {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .single();
+        setRecipientName(data?.full_name || '');
+      }
+    } catch (error) {
+      console.error('Error fetching recipient name:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchRecipientName();
+    }
+  }, [session, guestId]);
 
   useEffect(() => {
     if (!selectedSalon || !selectedService) {
@@ -43,13 +77,13 @@ export default function TimeSelection() {
 
   const handleTimeSelect = (startTime: string, endTime: string) => {
     setSelectedTime(startTime);
-    setSelectedTimeSlot({ 
-      start_time: startTime, 
+    setSelectedTimeSlot({
+      start_time: startTime,
       end_time: endTime,
-      is_available: true 
+      is_available: true,
+      date: params.date
     });
     
-    // Navigate to confirmation with date
     router.push({
       pathname: '/booking/confirmation',
       params: { date: params.date }

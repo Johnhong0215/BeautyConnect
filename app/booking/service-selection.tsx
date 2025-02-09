@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/services/supabase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { ProfileForm } from '../../src/components/ProfileForm';
-import { Profile, Service } from '../../src/types/database';
+import { Profile, Service, Gender } from '../../src/types/database';
 import { createInitialProfile } from '../../src/utils/auth';
 import { useBooking } from '../../src/contexts/BookingContext';
 import { Alert } from 'react-native';
@@ -24,21 +24,42 @@ interface GuestProfile {
 
 export default function ServiceSelection() {
   const { session } = useAuth();
-  const { selectedSalon, setCurrentStep, getAvailableServices, resetBooking, handleServiceSelect } = useBooking();
+  const { selectedSalon, getAvailableServices, handleServiceSelect } = useBooking();
   const params = useLocalSearchParams<{ serviceType: 'hair' | 'nail', guestId?: string }>();
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<Service[]>([]);
-  const [gender, setGender] = useState<'male' | 'female' | null>(null);
+  const [gender, setGender] = useState<Gender | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
 
-  const fetchServices = async () => {
-    if (!selectedSalon) return;
+  const fetchUserGenderAndServices = async () => {
     try {
       setLoading(true);
-      const servicesData = await getAvailableServices(selectedSalon.id);
-      setServices(servicesData);
+      
+      // Fetch gender based on whether it's for a guest or the user themselves
+      if (params.guestId) {
+        const { data: guestData } = await supabase
+          .from('guests')
+          .select('gender')
+          .eq('id', params.guestId)
+          .single();
+        setGender(guestData?.gender || 'male');
+      } else if (session?.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('gender')
+          .eq('id', session.user.id)
+          .single();
+        setGender(profileData?.gender || 'male');
+      }
+
+      // Fetch services using salon ID and service type
+      if (!selectedSalon?.id) {
+        throw new Error('No salon selected');
+      }
+      const availableServices = await getAvailableServices(selectedSalon.id, params.serviceType);
+      setServices(availableServices);
     } catch (error) {
-      console.error('Error fetching services:', error);
+      console.error('Error fetching data:', error);
       Alert.alert('Error', 'Failed to load services');
     } finally {
       setLoading(false);
@@ -50,58 +71,14 @@ export default function ServiceSelection() {
       router.replace('/booking/select-salon');
       return;
     }
-    fetchServices();
+    fetchUserGenderAndServices();
   }, [selectedSalon]);
 
-  const fetchProfileAndServices = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch gender information based on whether it's for a guest or self
-      if (params.guestId) {
-        const { data: guestData, error: guestError } = await supabase
-          .from('guests')
-          .select('gender')
-          .eq('id', params.guestId)
-          .single();
-
-        if (guestError) throw guestError;
-        setGender(guestData?.gender || null);
-      } else if (session?.user) {
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('gender')
-          .eq('id', session.user.id)
-          .single();
-
-        if (userError) throw userError;
-        setGender(userData?.gender || null);
-      }
-
-      // Fetch services
-      const { data: services, error: servicesError } = await supabase
-        .from('services')
-        .select('*')
-        .eq('type', params.serviceType)
-        .order('created_at');
-
-      if (servicesError) throw servicesError;
-      setServices(services || []);
-
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const calculateDuration = (service: Service) => {
-    if (!gender) return service.duration_male;
     return gender === 'female' ? service.duration_female : service.duration_male;
   };
 
   const calculatePrice = (service: Service) => {
-    if (!gender) return service.price_male;
     return gender === 'female' ? service.price_female : service.price_male;
   };
 
@@ -126,7 +103,7 @@ export default function ServiceSelection() {
             <Card.Content>
               <Text variant="bodyMedium">{service.description}</Text>
               <Text variant="bodyMedium" style={styles.details}>
-                Duration: {calculateDuration(service)} minutes
+                Duration: {calculateDuration(service)} minutes 
               </Text>
               <Text variant="bodyMedium" style={styles.details}>
                 Price: ${calculatePrice(service).toFixed(2)}

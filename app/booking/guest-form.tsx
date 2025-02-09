@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/services/supabase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
+import { Gender } from '../../src/types/database';
 
 export default function GuestForm() {
   const { session } = useAuth();
@@ -31,8 +32,8 @@ export default function GuestForm() {
   const initialGuest = {
     full_name: params.fullName || '',
     age: params.age ? parseInt(params.age) : undefined,
-    gender: params.gender || 'male',
-    hair_length: params.hairLength || 'medium',
+    gender: params.gender as Gender || 'male',
+    hair_length: params.hairLength as 'short' | 'medium' | 'long' || 'medium',
     hair_color: params.hairColor || '',
     notes: params.notes || '',
   };
@@ -186,11 +187,10 @@ export default function GuestForm() {
         </Text>
         <SegmentedButtons
           value={guest.gender}
-          onValueChange={(value) => handleChange('gender', value)}
+          onValueChange={value => setGuest(g => ({ ...g, gender: value as Gender }))}
           buttons={[
             { value: 'male', label: 'Male' },
-            { value: 'female', label: 'Female' },
-            { value: 'other', label: 'Other' },
+            { value: 'female', label: 'Female' }
           ]}
           style={styles.segmented}
         />

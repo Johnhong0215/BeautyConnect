@@ -32,7 +32,8 @@ interface TimeSlot {
   start_time: string;
   end_time: string;
   is_available: boolean;
-  id?: string;  // Make id optional
+  date: string;
+  id?: string;
 }
 
 interface BookingContextType {
@@ -50,7 +51,7 @@ interface BookingContextType {
   setGuestId: (id: string | null) => void;
   setCurrentStep: (step: 'start' | 'salon' | 'service' | 'date' | 'time' | 'confirm') => void;
   getNearbyHairSalons: (radius?: number) => Promise<Salon[]>;
-  getAvailableServices: (salonId: string) => Promise<Service[]>;
+  getAvailableServices: (salonId: string, serviceType: 'hair' | 'nail') => Promise<Service[]>;
   getAvailableTimeSlots: (date: string) => Promise<TimeSlot[]>;
   confirmBooking: () => Promise<void>;
   resetBooking: () => void;
@@ -210,18 +211,19 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getAvailableServices = async (salonId: string): Promise<Service[]> => {
+  const getAvailableServices = async (salonId: string, serviceType: 'hair' | 'nail') => {
     try {
       const { data, error } = await supabase
         .from('services')
-        .select('id, name, description, duration_male, duration_female, price_male, price_female, created_at')
-        .eq('salon_id', salonId);
+        .select('*')
+        .eq('salon_id', salonId)
+        .eq('type', serviceType);
 
       if (error) throw error;
       return data || [];
     } catch (error) {
       console.error('Error fetching services:', error);
-      return [];
+      throw error;
     }
   };
 
@@ -247,26 +249,37 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
   };
 
   const confirmBooking = async () => {
-    if (!selectedSalon || !selectedService || !selectedTimeSlot) {
+    if (!selectedSalon || !selectedService || !selectedTimeSlot || !session?.user) {
       throw new Error('Missing booking information');
     }
 
     try {
+      const appointmentData = {
+        salon_id: selectedSalon.id,
+        service_id: selectedService.id,
+        user_id: session.user.id,
+        guest_id: isForGuest ? guestId : null,
+        appointment_date: selectedTimeSlot.date,
+        start_time: selectedTimeSlot.start_time,
+        end_time: selectedTimeSlot.end_time,
+        duration: isForGuest ? selectedService.duration_female : selectedService.duration_male,
+        total_price: isForGuest ? selectedService.price_female : selectedService.price_male,
+        status: 'confirmed'
+      };
+
+      console.log('Creating appointment with:', appointmentData);
+
       const { data, error } = await supabase
         .from('appointments')
-        .insert({
-          salon_id: selectedSalon.id,
-          service_id: selectedService.id,
-          user_id: isForGuest ? guestId : session?.user.id,
-          appointment_date: selectedTimeSlot.date,
-          start_time: selectedTimeSlot.start_time,
-          end_time: selectedTimeSlot.end_time,
-          status: 'pending'
-        })
+        .insert(appointmentData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
       return data;
     } catch (error) {
       console.error('Error confirming booking:', error);

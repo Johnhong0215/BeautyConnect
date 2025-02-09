@@ -3,7 +3,7 @@ export interface Profile {
   email: string;
   full_name: string;
   phone: string;
-  gender: 'male' | 'female' | 'other';
+  gender: 'male' | 'female';
   age: number;
   hair_length?: 'short' | 'medium' | 'long';
   hair_color?: string;
@@ -60,4 +60,6 @@ export interface Salon {
     latitude: number;
     longitude: number;
   };
-} 
+}
+
+export type Gender = 'male' | 'female'; 

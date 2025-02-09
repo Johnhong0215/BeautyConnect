@@ -1,5 +1,6 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
-import { StyleSheet, ScrollView, View } from 'react-native';
+import { StyleSheet, ScrollView, View, Alert } from 'react-native';
 import { Text, Button, List, ActivityIndicator, FAB } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -7,13 +8,16 @@ import { supabase } from '../../src/services/supabase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useBooking } from '@/contexts/BookingContext';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
+import { isProfileComplete, getProfile } from '@/utils/profile';
+import { Gender } from '@/types/database';
 
 interface Guest {
   id: string;
   full_name: string;
   age: number;
-  gender: string;
-  hair_length?: string;
+  gender: Gender;
+  hair_length: string;
+  created_at: string;
 }
 
 interface Profile {
@@ -23,7 +27,7 @@ interface Profile {
 
 export default function GuestList() {
   const { session } = useAuth();
-  const { setGuestId } = useBooking();
+  const { setGuestId, setSelectedSalon, setSelectedService, setSelectedTimeSlot, setIsForGuest } = useBooking();
   const [loading, setLoading] = useState(true);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
@@ -64,25 +68,42 @@ export default function GuestList() {
   };
 
   const handleGuestSelect = (guestId: string) => {
+    console.log('Selected guest ID:', guestId);
     setGuestId(guestId);
-    router.push({
-      pathname: '/booking/service-selection',
-      params: { 
-        serviceType: 'hair',
-        guestId 
-      }
-    });
+    setIsForGuest(true);
+    setSelectedSalon(null);
+    setSelectedService(null);
+    setSelectedTimeSlot(null);
+    router.push('/booking/select-salon');
   };
 
-  const handleBookForSelf = () => {
-    setGuestId(null);
-    router.push({
-      pathname: '/booking/service-selection',
-      params: { 
-        serviceType: 'hair',
-        guestId: null
+  const handleBookForSelf = async () => {
+    if (!session?.user) return;
+
+    try {
+      const profile = await getProfile(session.user.id);
+      
+      if (!isProfileComplete(profile)) {
+        // Redirect to profile completion form
+        router.push({
+          pathname: '/profile/complete',
+          params: { 
+            returnTo: '/booking/select-salon'
+          }
+        });
+        return;
       }
-    });
+
+      // Existing reset and navigation logic
+      setSelectedSalon(null);
+      setSelectedService(null);
+      setSelectedTimeSlot(null);
+      setGuestId(null);
+      router.push('/booking/select-salon');
+    } catch (error) {
+      console.error('Error checking profile:', error);
+      Alert.alert('Error', 'Unable to proceed with booking');
+    }
   };
 
   const handleAddGuest = () => {

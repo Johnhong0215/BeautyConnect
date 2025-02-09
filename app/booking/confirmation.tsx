@@ -1,4 +1,4 @@
-import { StyleSheet, View, Alert } from 'react-native';
+import { StyleSheet, View, Alert, ScrollView } from 'react-native';
 import { Text, Button, Card, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,62 +17,41 @@ interface GuestInfo {
 
 export default function Confirmation() {
   const { session } = useAuth();
-  const { guestId, selectedSalon, selectedService, selectedTimeSlot, setSelectedTimeSlot } = useBooking();
+  const { guestId, selectedSalon, selectedService, selectedTimeSlot, setSelectedTimeSlot, confirmBooking } = useBooking();
   const params = useLocalSearchParams<{ date: string }>();
 
   const [guestInfo, setGuestInfo] = useState<GuestInfo | null>(null);
+  const [userInfo, setUserInfo] = useState<GuestInfo | null>(null);
   const [serviceName, setServiceName] = useState<string>('');
 
   useEffect(() => {
-    fetchServiceAndGuestInfo();
+    fetchRecipientInfo();
     if (!selectedSalon || !selectedService || !selectedTimeSlot) {
       router.replace('/booking/select-salon');
     }
   }, [selectedSalon, selectedService, selectedTimeSlot]);
 
-  const fetchServiceAndGuestInfo = async () => {
-    if (!session?.user) return;
-    
+  const fetchRecipientInfo = async () => {
     try {
-      // Fetch service name
-      const { data: service } = await supabase
-        .from('services')
-        .select('name')
-        .eq('id', selectedService.id)
-        .single();
-
-      if (service) {
-        setServiceName(service.name);
-      }
-
-      // If guestId exists, fetch guest info
       if (guestId) {
-        const { data: guest } = await supabase
+        // Fetch guest information
+        const { data: guestData } = await supabase
           .from('guests')
           .select('full_name, gender')
           .eq('id', guestId)
           .single();
-
-        if (guest) {
-          setGuestInfo(guest);
-        }
+        setGuestInfo(guestData);
       } else {
-        // If no guestId, fetch user's profile
-        const { data: profile } = await supabase
+        // Fetch user's own information
+        const { data: userData } = await supabase
           .from('profiles')
-          .select('full_name')
-          .eq('id', session.user.id)
+          .select('full_name, gender')
+          .eq('id', session?.user?.id)
           .single();
-
-        if (profile) {
-          setGuestInfo({
-            full_name: profile.full_name,
-            gender: 'self'
-          });
-        }
+        setUserInfo(userData);
       }
     } catch (error) {
-      console.error('Error fetching details:', error);
+      console.error('Error fetching recipient info:', error);
     }
   };
 
@@ -91,36 +70,32 @@ export default function Confirmation() {
 
   const handleConfirm = async () => {
     try {
-      if (!selectedSalon || !selectedService || !selectedTimeSlot || !session?.user) {
-        throw new Error('Missing booking information');
+      if (!selectedTimeSlot) {
+        // Set the date from params into selectedTimeSlot
+        setSelectedTimeSlot({
+          ...selectedTimeSlot!,
+          date: params.date // Make sure we have the date
+        });
       }
 
-      const appointmentData = {
-        salon_id: selectedSalon.id,
-        service_id: selectedService.id,
-        user_id: session.user.id,
-        appointment_date: params.date,
-        start_time: selectedTimeSlot.start_time,
-        end_time: selectedTimeSlot.end_time,
-        duration: selectedService.duration_male,
-        total_price: selectedService.price_male,
-        status: 'confirmed'
-      };
-
-      const { data, error } = await supabase
-        .from('appointments')
-        .insert(appointmentData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      router.push({
-        pathname: '/booking/success',
-        params: { appointmentId: data.id }
+      console.log('Starting confirmation with:', {
+        date: params.date,
+        guestId,
+        selectedTimeSlot
       });
+
+      const appointment = await confirmBooking();
+      
+      if (appointment?.id) {
+        router.replace({
+          pathname: '/booking/success',
+          params: { 
+            appointmentId: appointment.id
+          }
+        });
+      }
     } catch (error) {
-      console.error('Error confirming booking:', error);
+      console.error('Error during confirmation:', error);
       Alert.alert('Error', 'Failed to confirm booking. Please try again.');
     }
   };
@@ -131,7 +106,16 @@ export default function Confirmation() {
         <Text variant="headlineMedium">Confirm Booking</Text>
       </Surface>
 
-      <View style={styles.content}>
+      <ScrollView>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium">Appointment For</Text>
+            <Text variant="bodyLarge">
+              {guestInfo?.full_name || userInfo?.full_name || 'Loading...'}
+            </Text>
+          </Card.Content>
+        </Card>
+
         <Text variant="titleMedium">Salon</Text>
         <Text style={styles.detail}>{selectedSalon?.name}</Text>
 
@@ -155,7 +139,7 @@ export default function Confirmation() {
         >
           Confirm Booking
         </Button>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

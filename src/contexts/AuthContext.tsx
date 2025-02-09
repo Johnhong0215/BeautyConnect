@@ -10,7 +10,7 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
 };
 
@@ -24,6 +24,10 @@ interface MinimalSession {
     id: string;
     email: string;
   };
+}
+
+interface AuthResponse {
+  error: Error | null;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -80,25 +84,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      // Create initial profile after successful signup
-      if (data.user) {
-        await createInitialProfile(data.user.id, data.user.email!);
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error signing up:', error);
-      throw error;
-    }
+  const signUp = async (email: string, password: string): Promise<AuthResponse> => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    return { error };
   };
 
   const signOut = async () => {

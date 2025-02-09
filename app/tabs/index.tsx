@@ -3,6 +3,7 @@ import { Text, Card, Button, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useBooking } from '../../src/contexts/BookingContext';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
 import { supabase } from '../../src/services/supabase';
 import { useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function Home() {
   const { session } = useAuth();
+  const { resetBooking } = useBooking();
   const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function Home() {
   };
 
   const handleServiceSelect = (serviceType: 'hair' | 'nail') => {
+    resetBooking();
     if (serviceType === 'hair') {
       router.push('/booking/guest-list');
     } else {

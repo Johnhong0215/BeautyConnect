@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import { router } from 'expo-router';
 import { useBooking } from '../../src/contexts/BookingContext';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { COLORS, SPACING } from '../../src/constants/theme';
 import { format } from 'date-fns';
 import { supabase } from '../../src/services/supabase';
@@ -16,10 +17,12 @@ interface AvailableDate {
 }
 
 export default function DateSelection() {
-  const { selectedSalon, selectedService } = useBooking();
+  const { session } = useAuth();
+  const { selectedSalon, selectedService, guestId } = useBooking();
   const [loading, setLoading] = useState(true);
   const [availableDates, setAvailableDates] = useState<AvailableDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [recipientName, setRecipientName] = useState<string>('');
 
   useEffect(() => {
     if (!selectedSalon || !selectedService) {
@@ -28,6 +31,10 @@ export default function DateSelection() {
     }
     fetchAvailableDates();
   }, [selectedSalon, selectedService]);
+
+  useEffect(() => {
+    fetchRecipientName();
+  }, []);
 
   const fetchAvailableDates = async () => {
     try {
@@ -46,6 +53,29 @@ export default function DateSelection() {
       Alert.alert('Error', 'Failed to load available dates');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecipientName = async () => {
+    if (!session?.user) return;
+    try {
+      if (guestId) {
+        const { data } = await supabase
+          .from('guests')
+          .select('full_name')
+          .eq('id', guestId)
+          .single();
+        setRecipientName(data?.full_name || '');
+      } else {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .single();
+        setRecipientName(data?.full_name || '');
+      }
+    } catch (error) {
+      console.error('Error fetching recipient name:', error);
     }
   };
 
@@ -82,9 +112,9 @@ export default function DateSelection() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Surface style={styles.header}>
-        <Text variant="headlineMedium">Select Date</Text>
-      </Surface>
+      <Text variant="titleMedium" style={styles.header}>
+        Select Date for {recipientName}
+      </Text>
 
       <Calendar
         markedDates={markedDates}

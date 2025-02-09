@@ -16,10 +16,11 @@ interface Appointment {
   end_time: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   total_price: number;
-  services: {
+  service: {
     name: string;
   };
-  guests: {
+  guest_id: string | null;
+  guest: {
     full_name: string;
   } | null;
 }
@@ -34,6 +35,7 @@ export default function Appointments() {
     if (!session?.user) return;
 
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('appointments')
         .select(`
@@ -43,35 +45,33 @@ export default function Appointments() {
           end_time,
           status,
           total_price,
-          services!appointments_service_id_fkey (
+          guest_id,
+          service:services (
             name
           ),
-          guests (
+          guest:guests!appointments_guest_id_fkey (
             full_name
           )
         `)
         .eq('user_id', session.user.id)
         .in('status', ['confirmed', 'pending'])
-        .order('appointment_date', { ascending: true });
+        .order('appointment_date', { ascending: true })
+        .order('start_time', { ascending: true });
 
       if (error) throw error;
 
-      // Transform the data:
-      // - If appointment.services is an array with at least one element, take the first.
-      // - Otherwise, default to an object with an empty name.
-      const transformedData = data?.map((appointment) => ({
-        ...appointment,
-        services: Array.isArray(appointment.services) 
-          ? appointment.services[0] 
-          : appointment.services,
-        guests: Array.isArray(appointment.guests) 
-          ? appointment.guests[0] 
-          : appointment.guests
-      })) as Appointment[];
+      const transformedData = data?.map(appointment => {
+        return {
+          ...appointment,
+          service: Array.isArray(appointment.service) ? appointment.service[0] : appointment.service,
+          guest: Array.isArray(appointment.guest) ? appointment.guest[0] : appointment.guest
+        };
+      }) as Appointment[];
 
       setAppointments(transformedData || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
+      Alert.alert('Error', 'Failed to load appointments');
     } finally {
       setLoading(false);
     }
@@ -161,6 +161,13 @@ export default function Appointments() {
     return format(date, 'MMMM d, yyyy');
   };
 
+  const getAppointmentFor = (appointment: Appointment) => {
+    if (appointment.guest_id && appointment.guest) {
+      return appointment.guest.full_name;
+    }
+    return 'Yourself';
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>
@@ -213,12 +220,12 @@ export default function Appointments() {
                     </View>
                     <View style={styles.headerText}>
                       <Text variant="titleMedium" style={styles.serviceName}>
-                        {appointment.services?.name
-                          ? appointment.services.name
+                        {appointment.service?.name
+                          ? appointment.service.name
                           : 'Service Unavailable'}
                       </Text>
                       <Text variant="bodyMedium" style={styles.guestName}>
-                        For: {appointment.guests?.full_name || 'Yourself'}
+                        For: {getAppointmentFor(appointment)}
                       </Text>
                     </View>
                     <Chip
