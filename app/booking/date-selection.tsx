@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Alert } from 'react-native';
 import { Text, Surface, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
@@ -9,12 +9,25 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { COLORS, SPACING } from '../../src/constants/theme';
 import { format } from 'date-fns';
 import { supabase } from '../../src/services/supabase';
-import { Alert } from 'react-native';
 
 interface AvailableDate {
   available_date: string;
   has_slots: boolean;
 }
+
+interface CalendarDay {
+  dateString: string;
+  day: number;
+  month: number;
+  year: number;
+  timestamp: number;
+}
+
+// Helper to return a local date string (YYYY-MM-DD)
+const getLocalDateString = (date: Date) => {
+  const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return format(localDate, 'yyyy-MM-dd');
+};
 
 export default function DateSelection() {
   const { session } = useAuth();
@@ -42,7 +55,7 @@ export default function DateSelection() {
       const { data, error } = await supabase.rpc('get_available_dates', {
         p_salon_id: selectedSalon!.id,
         p_service_id: selectedService!.id,
-        p_start_date: format(new Date(), 'yyyy-MM-dd'),
+        p_start_date: getLocalDateString(new Date()),
         p_days_ahead: 30
       });
 
@@ -118,9 +131,9 @@ export default function DateSelection() {
 
       <Calendar
         markedDates={markedDates}
-        onDayPress={day => handleDateSelect(day.dateString)}
-        minDate={format(new Date(), 'yyyy-MM-dd')}
-        maxDate={format(new Date().setDate(new Date().getDate() + 30), 'yyyy-MM-dd')}
+        onDayPress={(day: CalendarDay) => handleDateSelect(day.dateString)}
+        minDate={getLocalDateString(new Date())}
+        maxDate={getLocalDateString(new Date(new Date().setDate(new Date().getDate() + 30)))}
         theme={{
           selectedDayBackgroundColor: COLORS.primary,
           todayTextColor: COLORS.primary,
@@ -145,4 +158,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-}); 
+});
