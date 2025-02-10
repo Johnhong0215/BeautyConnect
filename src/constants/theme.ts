@@ -1,3 +1,14 @@
+export const DESIGNER_COLORS = {
+  primary: '#E53935',
+  secondary: '#FF5252',
+  surface: '#FFEBEE',
+  background: '#FFFFFF',
+  text: '#1A1A1A',
+  textSecondary: '#757575',
+  error: '#D32F2F',
+  border: '#FFCDD2'
+} as const;
+
 export const COLORS = {
   primary: '#6200ee', // Main purple
   primaryLight: '#EDE7F6', // Light purple for icon backgrounds

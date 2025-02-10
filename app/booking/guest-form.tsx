@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { StyleSheet, ScrollView, Alert } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
+import { StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -160,93 +160,110 @@ export default function GuestForm() {
     );
   };
 
+  const scrollViewRef = useRef<ScrollView | null>(null);
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView>
-        <Text variant="headlineSmall" style={styles.title}>
-          Guest Information
-        </Text>
-
-        <TextInput
-          label="Full Name"
-          value={guest.full_name}
-          onChangeText={(value) => handleChange('full_name', value)}
-          style={styles.input}
-        />
-
-        <TextInput
-          label="Age"
-          value={guest.age?.toString()}
-          onChangeText={(value) => handleChange('age', parseInt(value) || 0)}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-
-        <Text variant="bodyMedium" style={styles.label}>
-          Gender
-        </Text>
-        <SegmentedButtons
-          value={guest.gender}
-          onValueChange={value => setGuest(g => ({ ...g, gender: value as Gender }))}
-          buttons={[
-            { value: 'male', label: 'Male' },
-            { value: 'female', label: 'Female' }
-          ]}
-          style={styles.segmented}
-        />
-
-        <Text variant="bodyMedium" style={styles.label}>
-          Hair Length
-        </Text>
-        <SegmentedButtons
-          value={guest.hair_length}
-          onValueChange={(value) => handleChange('hair_length', value)}
-          buttons={[
-            { value: 'short', label: 'Short' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'long', label: 'Long' },
-          ]}
-          style={styles.segmented}
-        />
-
-        <TextInput
-          label="Hair Color"
-          value={guest.hair_color}
-          onChangeText={(value) => handleChange('hair_color', value)}
-          style={styles.input}
-        />
-
-        <TextInput
-          label="Additional Notes"
-          value={guest.notes}
-          onChangeText={(value) => handleChange('notes', value)}
-          multiline
-          numberOfLines={3}
-          style={styles.input}
-        />
-
-        <Button
-          mode="contained"
-          onPress={handleSubmit}
-          loading={loading}
-          style={styles.button}
-          disabled={!guest.full_name || guest.age === undefined}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      >
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => {
+            scrollViewRef.current?.scrollToEnd?.({ animated: true });
+          }}
         >
-          Save
-        </Button>
+          <Text variant="headlineSmall" style={styles.title}>
+            Guest Information
+          </Text>
 
-        {params.mode === 'edit' && (
+          <TextInput
+            label="Full Name"
+            value={guest.full_name}
+            onChangeText={(value) => handleChange('full_name', value)}
+            style={styles.input}
+          />
+
+          <TextInput
+            label="Age"
+            value={guest.age?.toString()}
+            onChangeText={(value) => handleChange('age', parseInt(value) || 0)}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+
+          <Text variant="bodyMedium" style={styles.label}>
+            Gender
+          </Text>
+          <SegmentedButtons
+            value={guest.gender}
+            onValueChange={value => setGuest(g => ({ ...g, gender: value as Gender }))}
+            buttons={[
+              { value: 'male', label: 'Male' },
+              { value: 'female', label: 'Female' }
+            ]}
+            style={styles.segmented}
+          />
+
+          <Text variant="bodyMedium" style={styles.label}>
+            Hair Length
+          </Text>
+          <SegmentedButtons
+            value={guest.hair_length}
+            onValueChange={(value) => handleChange('hair_length', value)}
+            buttons={[
+              { value: 'short', label: 'Short' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'long', label: 'Long' },
+            ]}
+            style={styles.segmented}
+          />
+
+          <TextInput
+            label="Hair Color"
+            value={guest.hair_color}
+            onChangeText={(value) => handleChange('hair_color', value)}
+            style={styles.input}
+          />
+
+          <TextInput
+            label="Additional Notes"
+            value={guest.notes}
+            onChangeText={(value) => handleChange('notes', value)}
+            multiline
+            numberOfLines={3}
+            style={styles.input}
+          />
+
           <Button
-            mode="outlined"
-            onPress={handleDelete}
+            mode="contained"
+            onPress={handleSubmit}
             loading={loading}
-            style={[styles.button, styles.deleteButton]}
-            textColor={COLORS.error}
+            style={styles.button}
+            disabled={!guest.full_name || guest.age === undefined}
           >
-            Delete Guest
+            Save
           </Button>
-        )}
-      </ScrollView>
+
+          {params.mode === 'edit' && (
+            <Button
+              mode="outlined"
+              onPress={handleDelete}
+              loading={loading}
+              style={[styles.button, styles.deleteButton]}
+              textColor={COLORS.error}
+            >
+              Delete Guest
+            </Button>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -287,5 +304,11 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     paddingVertical: SPACING.sm,
     borderColor: COLORS.error,
+  },
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Add extra padding at bottom
   },
 });

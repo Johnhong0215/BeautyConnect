@@ -43,5 +43,19 @@ export default function AddGuest() {
 }
 
 const styles = StyleSheet.create({
-  // ... styles
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  content: {
+    padding: SPACING.lg,
+  },
+  label: {
+    marginBottom: SPACING.sm,
+    color: COLORS.text,
+  },
+  segmented: {
+    marginBottom: SPACING.md,
+  },
+  // ... other styles
 }); 

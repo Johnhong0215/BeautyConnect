@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { useState, useRef } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Button, TextInput, Text } from 'react-native-paper';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { SPACING } from '../../src/constants/theme';
 
 export default function SignIn() {
   // Get any passed email and password from the URL query parameters.
@@ -12,6 +13,7 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
   const handleSignIn = async () => {
     try {
@@ -26,47 +28,67 @@ export default function SignIn() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.title}>
-        Sign In
-      </Text>
-      <TextInput
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        style={styles.input}
-      />
-      <TextInput
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-      />
-      <Button
-        mode="contained"
-        onPress={handleSignIn}
-        loading={loading}
-        style={styles.button}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       >
-        Sign In
-      </Button>
-      <Button
-        mode="text"
-        onPress={() => router.push('/auth/sign-up')}
-        style={styles.button}
-      >
-        Don't have an account? Sign Up
-      </Button>
-    </View>
+        <ScrollView 
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            <Text variant="headlineMedium" style={styles.title}>
+              Sign In
+            </Text>
+            <TextInput
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              style={styles.input}
+            />
+            <TextInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              style={styles.input}
+            />
+            <Button
+              mode="contained"
+              onPress={handleSignIn}
+              loading={loading}
+              style={styles.button}
+            >
+              Sign In
+            </Button>
+            <Button
+              mode="text"
+              onPress={() => router.push('/auth/sign-up')}
+              style={styles.button}
+            >
+              Don't have an account? Sign Up
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  content: {
+    flex: 1,
+    padding: SPACING.lg,
     justifyContent: 'center',
   },
   title: {

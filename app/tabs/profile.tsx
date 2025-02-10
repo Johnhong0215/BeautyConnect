@@ -344,13 +344,20 @@ export default function Profile() {
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => router.push('/past-appointments')}
           />
-          {isDesignerRole && (
+          {isDesignerRole ? (
             <List.Item
               title="Switch to Designer Mode"
               left={props => <List.Icon {...props} icon="account-tie" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={handleRoleToggle}
               disabled={loading}
+            />
+          ) : (
+            <List.Item
+              title="Register as a Designer"
+              left={props => <List.Icon {...props} icon="scissors-cutting" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => router.push('/salon/setup')}
             />
           )}
         </View>
@@ -484,6 +491,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  content: {
+    padding: SPACING.lg,
   },
   header: {
     padding: SPACING.lg,

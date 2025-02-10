@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { StyleSheet, View, ScrollView, Alert } from 'react-native';
+import { useState, useRef } from 'react';
+import { StyleSheet, View, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, TextInput, Button, Surface, Switch, ProgressBar, SegmentedButtons } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { supabase } from '../../src/services/supabase';
-import { COLORS, SPACING } from '../../src/constants/theme';
+import { COLORS, SPACING, DESIGNER_COLORS } from '../../src/constants/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import axios from 'axios';
@@ -30,7 +30,17 @@ interface Location {
   address: string;
 }
 
-export default function SalonSetup() {
+interface SalonSetupProps {
+  mode?: 'setup' | 'add';
+  returnTo?: string;
+  theme?: 'default' | 'designer';
+}
+
+export default function SalonSetup({ 
+  mode = 'setup', 
+  returnTo = '/tabs',
+  theme = 'default' 
+}: SalonSetupProps) {
   const { session } = useAuth();
   const [currentStep, setCurrentStep] = useState<Step>('salon');
   const [loading, setLoading] = useState(false);
@@ -43,13 +53,13 @@ export default function SalonSetup() {
   });
 
   const [businessHours, setBusinessHours] = useState([
-    { day: 'Sunday', isOpen: false, open_time: '09:00', close_time: '17:00', day_of_week: 0 },
-    { day: 'Monday', isOpen: true, open_time: '09:00', close_time: '17:00', day_of_week: 1 },
-    { day: 'Tuesday', isOpen: true, open_time: '09:00', close_time: '17:00', day_of_week: 2 },
-    { day: 'Wednesday', isOpen: true, open_time: '09:00', close_time: '17:00', day_of_week: 3 },
-    { day: 'Thursday', isOpen: true, open_time: '09:00', close_time: '17:00', day_of_week: 4 },
-    { day: 'Friday', isOpen: true, open_time: '09:00', close_time: '17:00', day_of_week: 5 },
-    { day: 'Saturday', isOpen: false, open_time: '09:00', close_time: '17:00', day_of_week: 6 },
+    { day_of_week: 0, open_time: '09:00', close_time: '17:00', is_closed: true },
+    { day_of_week: 1, open_time: '09:00', close_time: '17:00', is_closed: false },
+    { day_of_week: 2, open_time: '09:00', close_time: '17:00', is_closed: false },
+    { day_of_week: 3, open_time: '09:00', close_time: '17:00', is_closed: false },
+    { day_of_week: 4, open_time: '09:00', close_time: '17:00', is_closed: false },
+    { day_of_week: 5, open_time: '09:00', close_time: '17:00', is_closed: false },
+    { day_of_week: 6, open_time: '09:00', close_time: '17:00', is_closed: true }
   ]);
 
   const [services, setServices] = useState<Service[]>([{
@@ -63,6 +73,10 @@ export default function SalonSetup() {
   }]);
 
   const [location, setLocation] = useState<Location | null>(null);
+
+  const scrollViewRef = useRef<ScrollView | null>(null);
+
+  const colors = theme === 'designer' ? DESIGNER_COLORS : COLORS;
 
   const getStepProgress = () => {
     switch (currentStep) {
@@ -123,20 +137,20 @@ export default function SalonSetup() {
   const renderHoursStep = () => (
     <View style={styles.form}>
       {businessHours.map((hour, index) => (
-        <View key={hour.day} style={styles.hourRow}>
+        <View key={hour.day_of_week} style={styles.hourRow}>
           <View style={styles.dayHeader}>
-            <Text variant="bodyLarge">{hour.day}</Text>
+            <Text variant="bodyLarge">{index === 0 ? 'Sunday' : index === 1 ? 'Monday' : index === 2 ? 'Tuesday' : index === 3 ? 'Wednesday' : index === 4 ? 'Thursday' : index === 5 ? 'Friday' : 'Saturday'}</Text>
             <Switch
-              value={hour.isOpen}
+              value={!hour.is_closed}
               onValueChange={(value) => {
                 const newHours = [...businessHours];
-                newHours[index].isOpen = value;
+                newHours[index].is_closed = !value;
                 setBusinessHours(newHours);
               }}
             />
           </View>
           
-          {hour.isOpen && (
+          {hour.is_closed && (
             <View style={styles.timeInputs}>
               <View style={styles.timeInput}>
                 <Text>From</Text>
@@ -276,74 +290,73 @@ export default function SalonSetup() {
   );
 
   const handleSubmit = async () => {
-    if (!session?.user || !location) return;
+    if (!session?.user) return;
     
     try {
       setLoading(true);
 
-      // 1. Update user role
-      const { error: roleError } = await supabase
-        .from('profiles')
-        .update({ role: 'designer' })
-        .eq('id', session.user.id);
-
-      if (roleError) throw roleError;
-
-      // 2. Create salon with location
+      // Create salon without location first
       const { data: salon, error: salonError } = await supabase
         .from('hair_salon')
         .insert({
-          owner_id: session.user.id,
           name: salonDetails.name,
-          address: location.address,
+          address: salonDetails.address,
           phone: salonDetails.phone,
           email: salonDetails.email,
-          location: `POINT(${location.longitude} ${location.latitude})` // PostGIS format
+          owner_id: session.user.id,
+          // Only include location if it exists, using PostGIS ST_SetSRID and ST_MakePoint
+          ...(location && {
+            location: `SRID=4326;POINT(${location.longitude} ${location.latitude})`
+          })
         })
         .select()
         .single();
 
       if (salonError) throw salonError;
 
-      // 3. Add business hours
-      const hoursData = businessHours.map(hour => ({
-        salon_id: salon.id,
-        day_of_week: hour.day_of_week,
-        open_time: hour.open_time,
-        close_time: hour.close_time,
-        is_closed: !hour.isOpen
-      }));
-
+      // Add business hours
       const { error: hoursError } = await supabase
         .from('business_hours')
-        .insert(hoursData);
+        .insert(
+          businessHours.map(hour => ({
+            salon_id: salon.id,
+            day_of_week: hour.day_of_week,
+            open_time: hour.open_time,
+            close_time: hour.close_time,
+            is_closed: hour.is_closed
+          }))
+        );
 
       if (hoursError) throw hoursError;
 
-      // 4. Add services
-      const servicesData = services.map(service => ({
-        salon_id: salon.id,
-        name: service.name,
-        description: service.description,
-        duration_male: service.duration_male,
-        duration_female: service.duration_female,
-        price_male: service.price_male,
-        price_female: service.price_female,
-        type: service.type
-      }));
-
+      // Add services
       const { error: servicesError } = await supabase
         .from('services')
-        .insert(servicesData);
+        .insert(
+          services.map(service => ({
+            salon_id: salon.id,
+            ...service
+          }))
+        );
 
       if (servicesError) throw servicesError;
 
-      Alert.alert('Success', 'Salon setup complete!');
-      router.replace('/tabs');
+      if (mode === 'setup') {
+        // Update user role to designer if this is initial setup
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ role: 'designer' })
+          .eq('id', session.user.id);
+
+        if (profileError) throw profileError;
+      }
+
+      // Always return to designer tabs
+      router.replace('/designer/tabs');
 
     } catch (error) {
-      console.error('Error creating salon:', error);
-      Alert.alert('Error', 'Failed to create salon');
+      console.error('Error setting up salon:', error);
+      Alert.alert('Error', 'Failed to set up salon');
     } finally {
       setLoading(false);
     }
@@ -397,10 +410,16 @@ export default function SalonSetup() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Surface style={styles.header}>
-        <Text variant="headlineMedium">Salon Setup</Text>
-        <ProgressBar progress={getStepProgress()} style={styles.progress} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <Surface style={[styles.header, { backgroundColor: colors.primary }]}>
+        <Text variant="headlineMedium" style={{ color: '#FFFFFF' }}>
+          {mode === 'setup' ? 'Salon Setup' : 'Add New Salon'}
+        </Text>
+        <ProgressBar 
+          progress={getStepProgress()} 
+          style={styles.progress}
+          color={colors.primary}
+        />
       </Surface>
 
       <ScrollView style={styles.content}>
@@ -409,7 +428,7 @@ export default function SalonSetup() {
         {currentStep === 'services' && renderServicesStep()}
       </ScrollView>
 
-      <Surface style={styles.footer}>
+      <Surface style={[styles.footer, { backgroundColor: colors.surface }]}>
         {currentStep !== 'salon' && (
           <Button mode="outlined" onPress={handleBack}>
             Back
@@ -434,10 +453,13 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.primary,
   },
   content: {
     flex: 1,
+    padding: SPACING.lg,
+  },
+  scrollContent: {
     padding: SPACING.lg,
   },
   segments: {
@@ -445,9 +467,11 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: SPACING.md,
+    padding: SPACING.lg,
   },
   input: {
     backgroundColor: COLORS.surface,
+    marginBottom: SPACING.md,
   },
   buttons: {
     marginTop: SPACING.xl,
@@ -500,6 +524,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: SPACING.md,
     backgroundColor: COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
   typeSelector: {
     marginBottom: SPACING.md,

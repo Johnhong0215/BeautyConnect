@@ -5,8 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { SPACING } from '@/constants/theme';
-import { DESIGNER_COLORS } from '../designer/tabs/index';
+import { SPACING, DESIGNER_COLORS } from '@/constants/theme';
 
 export default function SalonForm() {
   const { session } = useAuth();

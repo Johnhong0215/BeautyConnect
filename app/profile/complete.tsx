@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { Text, TextInput, Button, SegmentedButtons } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -19,6 +19,7 @@ export default function ProfileComplete() {
     hair_length: 'medium' as 'short' | 'medium' | 'long',
     hair_color: ''
   });
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
   const handleSubmit = async () => {
     if (!session?.user) return;
@@ -49,74 +50,84 @@ export default function ProfileComplete() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.content}>
-        <Text variant="headlineSmall" style={styles.title}>
-          Complete Your Profile
-        </Text>
-
-        <TextInput
-          label="Full Name"
-          value={profile.full_name}
-          onChangeText={text => setProfile(p => ({ ...p, full_name: text }))}
-          style={styles.input}
-        />
-
-        <TextInput
-          label="Phone"
-          value={profile.phone}
-          onChangeText={text => setProfile(p => ({ ...p, phone: text }))}
-          keyboardType="phone-pad"
-          style={styles.input}
-        />
-
-        <TextInput
-          label="Age"
-          value={profile.age}
-          onChangeText={text => setProfile(p => ({ ...p, age: text }))}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-
-        <Text variant="bodyLarge" style={styles.sectionTitle}>Gender</Text>
-        <SegmentedButtons
-          value={profile.gender}
-          onValueChange={value => setProfile(p => ({ ...p, gender: value as 'male' | 'female' }))}
-          buttons={[
-            { value: 'male', label: 'Male' },
-            { value: 'female', label: 'Female' }
-          ]}
-          style={styles.segmented}
-        />
-
-        <Text variant="bodyLarge" style={styles.sectionTitle}>Hair Length</Text>
-        <SegmentedButtons
-          value={profile.hair_length}
-          onValueChange={value => setProfile(p => ({ ...p, hair_length: value as 'short' | 'medium' | 'long' }))}
-          buttons={[
-            { value: 'short', label: 'Short' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'long', label: 'Long' }
-          ]}
-          style={styles.segmented}
-        />
-
-        <TextInput
-          label="Hair Color"
-          value={profile.hair_color}
-          onChangeText={text => setProfile(p => ({ ...p, hair_color: text }))}
-          style={styles.input}
-        />
-
-        <Button
-          mode="contained"
-          onPress={handleSubmit}
-          loading={loading}
-          style={styles.button}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView 
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          Save Profile
-        </Button>
-      </ScrollView>
+          <View style={styles.content}>
+            <Text variant="headlineMedium" style={styles.title}>Complete Your Profile</Text>
+
+            <TextInput
+              label="Full Name"
+              value={profile.full_name}
+              onChangeText={text => setProfile(p => ({ ...p, full_name: text }))}
+              style={styles.input}
+            />
+
+            <TextInput
+              label="Phone"
+              value={profile.phone}
+              onChangeText={text => setProfile(p => ({ ...p, phone: text }))}
+              keyboardType="phone-pad"
+              style={styles.input}
+            />
+
+            <TextInput
+              label="Age"
+              value={profile.age}
+              onChangeText={text => setProfile(p => ({ ...p, age: text }))}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+
+            <Text variant="bodyLarge" style={styles.sectionTitle}>Gender</Text>
+            <SegmentedButtons
+              value={profile.gender}
+              onValueChange={value => setProfile(p => ({ ...p, gender: value as 'male' | 'female' }))}
+              buttons={[
+                { value: 'male', label: 'Male' },
+                { value: 'female', label: 'Female' }
+              ]}
+              style={styles.segmented}
+            />
+
+            <Text variant="bodyLarge" style={styles.sectionTitle}>Hair Length</Text>
+            <SegmentedButtons
+              value={profile.hair_length}
+              onValueChange={value => setProfile(p => ({ ...p, hair_length: value as 'short' | 'medium' | 'long' }))}
+              buttons={[
+                { value: 'short', label: 'Short' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'long', label: 'Long' }
+              ]}
+              style={styles.segmented}
+            />
+
+            <TextInput
+              label="Hair Color"
+              value={profile.hair_color}
+              onChangeText={text => setProfile(p => ({ ...p, hair_color: text }))}
+              style={styles.input}
+            />
+
+            <Button
+              mode="contained"
+              onPress={handleSubmit}
+              loading={loading}
+              style={styles.button}
+            >
+              Save Profile
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -124,7 +135,9 @@ export default function ProfileComplete() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     padding: SPACING.lg,
@@ -145,7 +158,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   button: {
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.xl,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.md,
   },
 }); 

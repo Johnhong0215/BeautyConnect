@@ -1,23 +1,14 @@
 import { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
-import { Text, Card, Button, Surface } from 'react-native-paper';
+import { Text, Card, Button, Surface, Portal, Modal, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useAuth } from '../../../src/contexts/AuthContext';
+import { useAuth, AuthProvider } from '../../../src/contexts/AuthContext';
 import { supabase } from '../../../src/services/supabase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SPACING } from '@/constants/theme';
-
-export const DESIGNER_COLORS = {
-  primary: '#E53935',
-  secondary: '#FF5252',
-  surface: '#FFEBEE',
-  background: '#FFFFFF',
-  text: '#1A1A1A',
-  textSecondary: '#757575',
-  error: '#D32F2F',
-  border: '#FFCDD2'
-} as const;
+import { SPACING, DESIGNER_COLORS } from '@/constants/theme';
+import SalonSetup from '../../salon/setup';
+import { ModeProvider } from '../../../src/contexts/ModeContext';
 
 interface Salon {
   id: string;
@@ -31,6 +22,7 @@ export default function DesignerHome() {
   const { session } = useAuth();
   const [salons, setSalons] = useState<Salon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddSalon, setShowAddSalon] = useState(false);
 
   useEffect(() => {
     if (session?.user) {
@@ -113,9 +105,8 @@ export default function DesignerHome() {
         <Text variant="titleLarge" style={styles.sectionTitle}>My Businesses</Text>
         <Button
           mode="contained"
+          onPress={() => router.push('/salon/setup?mode=add&returnTo=/designer/tabs&theme=designer')}
           icon="plus"
-          style={[styles.addButton, { backgroundColor: DESIGNER_COLORS.secondary }]}
-          onPress={() => router.push('/salon/add')}
         >
           Add New Business
         </Button>
@@ -156,6 +147,32 @@ export default function DesignerHome() {
           ))}
         </View>
       </ScrollView>
+
+      <Portal>
+        <Modal
+          visible={showAddSalon}
+          onDismiss={() => setShowAddSalon(false)}
+          style={{ margin: 0 }}
+        >
+          <View style={styles.modalContainer}>
+            <ModeProvider>
+              <AuthProvider>
+                <Surface style={styles.modalHeader}>
+                  <IconButton 
+                    icon="close" 
+                    onPress={() => setShowAddSalon(false)} 
+                  />
+                </Surface>
+                <SalonSetup 
+                  mode="add" 
+                  returnTo="/designer/tabs" 
+                  theme="designer"
+                />
+              </AuthProvider>
+            </ModeProvider>
+          </View>
+        </Modal>
+      </Portal>
     </SafeAreaView>
   );
 }
@@ -252,8 +269,14 @@ const styles = StyleSheet.create({
   salonButton: {
     borderColor: DESIGNER_COLORS.primary,
   },
-  addButton: {
-    marginBottom: SPACING.md,
-    borderRadius: 8,
+  modalContainer: {
+    flex: 1,
+    backgroundColor: DESIGNER_COLORS.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: SPACING.sm,
+    backgroundColor: DESIGNER_COLORS.surface,
   },
 });
