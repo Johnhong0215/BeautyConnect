@@ -53,7 +53,7 @@ interface BookingContextType {
   getNearbyHairSalons: (radius?: number) => Promise<Salon[]>;
   getAvailableServices: (salonId: string, serviceType: 'hair' | 'nail') => Promise<Service[]>;
   getAvailableTimeSlots: (date: string) => Promise<TimeSlot[]>;
-  confirmBooking: () => Promise<void>;
+  confirmBooking: () => Promise<{ id: string } | null>;
   resetBooking: () => void;
   startNewBooking: (isGuest: boolean) => void;
   handleStepNavigation: (nextStep: string) => void;
@@ -248,7 +248,7 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const confirmBooking = async () => {
+  const confirmBooking = async (): Promise<{ id: string } | null> => {
     if (!selectedSalon || !selectedService || !selectedTimeSlot || !session?.user) {
       throw new Error('Missing booking information');
     }

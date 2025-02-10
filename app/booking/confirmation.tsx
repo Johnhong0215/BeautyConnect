@@ -15,6 +15,8 @@ interface GuestInfo {
   gender: string;
 }
 
+type Appointment = Database['public']['Tables']['appointments']['Row'];
+
 export default function Confirmation() {
   const { session } = useAuth();
   const { guestId, selectedSalon, selectedService, selectedTimeSlot, setSelectedTimeSlot, confirmBooking } = useBooking();
@@ -71,10 +73,9 @@ export default function Confirmation() {
   const handleConfirm = async () => {
     try {
       if (!selectedTimeSlot) {
-        // Set the date from params into selectedTimeSlot
         setSelectedTimeSlot({
           ...selectedTimeSlot!,
-          date: params.date // Make sure we have the date
+          date: params.date
         });
       }
 
@@ -84,7 +85,7 @@ export default function Confirmation() {
         selectedTimeSlot
       });
 
-      const appointment = await confirmBooking();
+      const appointment: { id: string } | null = await confirmBooking();
       
       if (appointment?.id) {
         router.replace({
