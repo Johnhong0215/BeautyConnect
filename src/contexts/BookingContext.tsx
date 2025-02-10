@@ -258,7 +258,7 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
         salon_id: selectedSalon.id,
         service_id: selectedService.id,
         user_id: session.user.id,
-        guest_id: isForGuest ? guestId : null,
+        guest_id: isForGuest ? guestId : null,  // Only set guest_id if booking for a guest
         appointment_date: selectedTimeSlot.date,
         start_time: selectedTimeSlot.start_time,
         end_time: selectedTimeSlot.end_time,
@@ -267,19 +267,13 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
         status: 'confirmed'
       };
 
-      console.log('Creating appointment with:', appointmentData);
-
       const { data, error } = await supabase
         .from('appointments')
         .insert(appointmentData)
         .select()
         .single();
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-
+      if (error) throw error;
       return data;
     } catch (error) {
       console.error('Error confirming booking:', error);

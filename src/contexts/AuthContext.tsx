@@ -5,14 +5,17 @@ import { createInitialProfile } from '../utils/auth';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMode } from './ModeContext';
+import { Alert } from 'react-native';
 
-type AuthContextType = {
+export interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
-};
+  switchMode: (mode: 'user' | 'designer') => Promise<void>;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -31,6 +34,7 @@ interface AuthResponse {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { switchMode } = useMode();
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -97,11 +101,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  return (
-    <AuthContext.Provider value={{ session, isLoading, signIn, signUp, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const handleSwitchMode = async (mode: 'user' | 'designer') => {
+    try {
+      await switchMode(mode);
+      router.replace(mode === 'user' ? '/tabs' : '/designer/tabs');
+    } catch (error) {
+      console.error('Error switching mode:', error);
+      Alert.alert('Error', 'Failed to switch mode');
+    }
+  };
+
+  const value = {
+    session,
+    isLoading,
+    signIn,
+    signUp,
+    signOut,
+    switchMode: handleSwitchMode,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => {

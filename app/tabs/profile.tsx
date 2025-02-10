@@ -25,7 +25,7 @@ export default function Profile() {
   const [guests, setGuests] = useState<any[]>([]);
   const translateY = useSharedValue(0);
   const [isLoading, setIsLoading] = useState(false);
-  const { currentMode, switchMode } = useMode();
+  const { mode, switchMode } = useMode();
   const [isDesignerRole, setIsDesignerRole] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -344,24 +344,16 @@ export default function Profile() {
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => router.push('/past-appointments')}
           />
-        </View>
-
-        {isDesignerRole && (
-          <View style={styles.switchContainer}>
-            <Text>Designer Mode</Text>
-            <Switch
-              value={currentMode === 'designer'}
-              onValueChange={async () => {
-                if (currentMode === 'designer') {
-                  await switchMode('user');
-                  router.replace('/tabs');
-                } else {
-                  await handleRoleToggle();
-                }
-              }}
+          {isDesignerRole && (
+            <List.Item
+              title="Switch to Designer Mode"
+              left={props => <List.Icon {...props} icon="account-tie" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={handleRoleToggle}
+              disabled={loading}
             />
-          </View>
-        )}
+          )}
+        </View>
 
         <Button
           mode="outlined"
@@ -663,11 +655,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     elevation: 9999,
     zIndex: 9999,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
   },
 }); 

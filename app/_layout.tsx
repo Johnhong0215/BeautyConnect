@@ -50,13 +50,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
-          <AuthProvider>
-            <ModeProvider>
+          <ModeProvider>
+            <AuthProvider>
               <BookingProvider>
                 <Stack screenOptions={{ headerShown: false }} />
               </BookingProvider>
-            </ModeProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </ModeProvider>
         </PaperProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
