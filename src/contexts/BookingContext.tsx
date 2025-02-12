@@ -19,13 +19,14 @@ interface Salon {
 interface Service {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   duration_male: number;
   duration_female: number;
   price_male: number;
   price_female: number;
   type?: 'hair' | 'nail';  // Make type optional
   created_at: string;
+  salon_id: string;
 }
 
 interface TimeSlot {

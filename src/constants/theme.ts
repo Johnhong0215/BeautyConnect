@@ -13,6 +13,7 @@ export const COLORS = {
   primary: '#6200ee', // Main purple
   primaryLight: '#EDE7F6', // Light purple for icon backgrounds
   primaryDark: '#4b01b5',
+  secondary: '#03DAC6',
   surface: '#ffffff',
   background: '#F5F6F9',
   text: '#1a1a1a',
