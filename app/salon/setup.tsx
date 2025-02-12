@@ -11,6 +11,8 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import axios from 'axios';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { format } from 'date-fns';
+import TimeSlider from '../../src/components/TimeSlider';
 
 type Step = 'salon' | 'hours' | 'services';
 
@@ -78,6 +80,38 @@ export default function SalonSetup({
 
   const colors = theme === 'designer' ? DESIGNER_COLORS : COLORS;
 
+  const [showTimePicker, setShowTimePicker] = useState<{
+    show: boolean;
+    dayIndex: number;
+    isOpenTime: boolean;
+    time: Date;
+  }>({ 
+    show: false, 
+    dayIndex: 0, 
+    isOpenTime: true,
+    time: new Date()
+  });
+
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || showTimePicker.time;
+    
+    // Always hide picker for Android
+    if (Platform.OS === 'android') {
+      setShowTimePicker(prev => ({ ...prev, show: false }));
+    }
+
+    if (selectedDate) {
+      const timeString = format(currentDate, 'HH:mm');
+      const newHours = [...businessHours];
+      if (showTimePicker.isOpenTime) {
+        newHours[showTimePicker.dayIndex].open_time = timeString;
+      } else {
+        newHours[showTimePicker.dayIndex].close_time = timeString;
+      }
+      setBusinessHours(newHours);
+    }
+  };
+
   const getStepProgress = () => {
     switch (currentStep) {
       case 'salon': return 0.33;
@@ -139,7 +173,9 @@ export default function SalonSetup({
       {businessHours.map((hour, index) => (
         <View key={hour.day_of_week} style={styles.hourRow}>
           <View style={styles.dayHeader}>
-            <Text variant="bodyLarge">{index === 0 ? 'Sunday' : index === 1 ? 'Monday' : index === 2 ? 'Tuesday' : index === 3 ? 'Wednesday' : index === 4 ? 'Thursday' : index === 5 ? 'Friday' : 'Saturday'}</Text>
+            <Text style={styles.dayText}>
+              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][hour.day_of_week]}
+            </Text>
             <Switch
               value={!hour.is_closed}
               onValueChange={(value) => {
@@ -150,32 +186,26 @@ export default function SalonSetup({
             />
           </View>
           
-          {hour.is_closed && (
+          {!hour.is_closed && (
             <View style={styles.timeInputs}>
-              <View style={styles.timeInput}>
-                <Text>From</Text>
-                <TextInput
-                  value={hour.open_time}
-                  onChangeText={(text) => {
-                    const newHours = [...businessHours];
-                    newHours[index].open_time = text;
-                    setBusinessHours(newHours);
-                  }}
-                  style={styles.input}
-                />
-              </View>
-              <View style={styles.timeInput}>
-                <Text>To</Text>
-                <TextInput
-                  value={hour.close_time}
-                  onChangeText={(text) => {
-                    const newHours = [...businessHours];
-                    newHours[index].close_time = text;
-                    setBusinessHours(newHours);
-                  }}
-                  style={styles.input}
-                />
-              </View>
+              <TimeSlider
+                label="From"
+                value={hour.open_time}
+                onChange={(time) => {
+                  const newHours = [...businessHours];
+                  newHours[index].open_time = time;
+                  setBusinessHours(newHours);
+                }}
+              />
+              <TimeSlider
+                label="To"
+                value={hour.close_time}
+                onChange={(time) => {
+                  const newHours = [...businessHours];
+                  newHours[index].close_time = time;
+                  setBusinessHours(newHours);
+                }}
+              />
             </View>
           )}
         </View>
@@ -484,20 +514,20 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   hourRow: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+  },
+  dayText: {
+    fontSize: 20,
   },
   timeInputs: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  timeInput: {
-    flex: 1,
+    marginTop: SPACING.md,
   },
   serviceCard: {
     padding: SPACING.md,

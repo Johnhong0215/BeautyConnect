@@ -22,7 +22,12 @@
         "googleMaps": {
           "apiKey": "YOUR_ANDROID_API_KEY"
         }
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.johnhong0215.hairai"
     },
     "plugins": [
       "expo-router",
@@ -35,6 +40,15 @@
       ]
     ],
     "scheme": "hairai",
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "641de31f-79c9-42a6-b836-b17382e75421"
+      }
+    },
+    "owner": "johnhong0215"
   }
 }

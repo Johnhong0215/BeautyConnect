@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, Alert } from 'react-native';
-import { Text, Surface, Button, Portal, Modal, TextInput, Divider, List, IconButton } from 'react-native-paper';
+import { Text, Surface, Button, Portal, Modal, TextInput, Divider, List, IconButton, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { SPACING, DESIGNER_COLORS } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import TimeSlider from '../../src/components/TimeSlider';
 
 interface Salon {
   id: string;
@@ -238,51 +239,70 @@ export default function SalonDetails() {
         <Surface style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="titleLarge">Business Hours</Text>
-            <IconButton
-              icon={editingHours ? 'check' : 'pencil'}
-              onPress={() => setEditingHours(!editingHours)}
-            />
+            <View style={styles.headerButtons}>
+              <Text variant="bodyMedium" style={{ marginRight: SPACING.xs }}>
+                {editingHours ? '':'Edit'}
+              </Text>
+              <IconButton
+                icon={editingHours ? 'check' : 'pencil'}
+                onPress={() => {
+                  if (editingHours) {
+                    handleHoursUpdate(businessHours);
+                  }
+                  setEditingHours(!editingHours);
+                }}
+              />
+            </View>
           </View>
           {businessHours.map((hour) => (
             <View key={hour.id} style={styles.hourRow}>
-              <Text variant="bodyLarge">{getDayName(hour.day_of_week)}</Text>
-              {editingHours ? (
-                <View style={styles.hourInputs}>
-                  <TextInput
-                    label="Open"
+              <View style={styles.dayHeader}>
+                <Text style={styles.dayText}>
+                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][hour.day_of_week]}
+                </Text>
+                <Switch
+                  value={!hour.is_closed}
+                  disabled={!editingHours}
+                  onValueChange={(value) => {
+                    if (!editingHours) return;
+                    const updated = businessHours.map(h =>
+                      h.id === hour.id ? { ...h, is_closed: !value } : h
+                    );
+                    setBusinessHours(updated);
+                  }}
+                />
+              </View>
+              
+              {!hour.is_closed && (
+                <View style={styles.timeInputs}>
+                  <TimeSlider
+                    label="From"
                     value={hour.open_time}
-                    onChangeText={(text) => {
+                    disabled={!editingHours}
+                    onChange={(time) => {
+                      if (!editingHours) return;
                       const updated = businessHours.map(h =>
-                        h.id === hour.id ? { ...h, open_time: text } : h
+                        h.id === hour.id ? { ...h, open_time: time } : h
                       );
                       setBusinessHours(updated);
                     }}
-                    style={styles.timeInput}
                   />
-                  <TextInput
-                    label="Close"
+                  <TimeSlider
+                    label="To"
                     value={hour.close_time}
-                    onChangeText={(text) => {
+                    disabled={!editingHours}
+                    onChange={(time) => {
+                      if (!editingHours) return;
                       const updated = businessHours.map(h =>
-                        h.id === hour.id ? { ...h, close_time: text } : h
+                        h.id === hour.id ? { ...h, close_time: time } : h
                       );
                       setBusinessHours(updated);
                     }}
-                    style={styles.timeInput}
                   />
                 </View>
-              ) : (
-                <Text>
-                  {hour.is_closed ? 'Closed' : `${hour.open_time} - ${hour.close_time}`}
-                </Text>
               )}
             </View>
           ))}
-          {editingHours && (
-            <Button mode="contained" onPress={() => handleHoursUpdate(businessHours)}>
-              Save Hours
-            </Button>
-          )}
         </Surface>
 
         {/* Services Section */}
@@ -452,17 +472,20 @@ const styles = StyleSheet.create({
     backgroundColor: DESIGNER_COLORS.background,
   },
   hourRow: {
+    marginBottom: SPACING.xl,
+  },
+  dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.sm,
   },
-  hourInputs: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
+  dayText: {
+    fontSize: 20,
   },
-  timeInput: {
-    width: 100,
+  timeInputs: {
+    marginTop: SPACING.md,
   },
   row: {
     flexDirection: 'row',
@@ -477,5 +500,9 @@ const styles = StyleSheet.create({
   deleteButton: {
     margin: SPACING.lg,
     marginBottom: SPACING.xl,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 }); 
