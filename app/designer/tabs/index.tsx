@@ -7,7 +7,6 @@ import { useAuth, AuthProvider } from '../../../src/contexts/AuthContext';
 import { supabase } from '../../../src/services/supabase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SPACING, DESIGNER_COLORS } from '@/constants/theme';
-import SalonSetup from '../../salon/setup';
 import { ModeProvider } from '../../../src/contexts/ModeContext';
 
 interface Salon {
@@ -163,11 +162,6 @@ export default function DesignerHome() {
                     onPress={() => setShowAddSalon(false)} 
                   />
                 </Surface>
-                <SalonSetup 
-                  mode="add" 
-                  returnTo="/designer/tabs" 
-                  theme="designer"
-                />
               </AuthProvider>
             </ModeProvider>
           </View>

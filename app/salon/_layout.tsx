@@ -11,16 +11,26 @@ export default function SalonLayout() {
         headerTintColor: '#fff',
         headerTitleStyle: {
           fontWeight: 'bold',
+          fontSize: 16,
         },
+        headerShadowVisible: false,
+        contentStyle: {
+          backgroundColor: DESIGNER_COLORS.primary,
+        },
+        headerTitleAlign: 'center',
       }}
     >
       <Stack.Screen
+        name="setup"
+        options={{
+          title: 'Add New Business',
+        }}
+      />
+      <Stack.Screen
         name="[id]"
-        options={({ route }) => ({
-          title: (route.params as { id?: string })?.id === 'add'
-            ? 'Add New Business'
-            : 'Edit Business',
-        })}
+        options={{
+          title: 'Edit Business',
+        }}
       />
     </Stack>
   );

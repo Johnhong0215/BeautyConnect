@@ -23,6 +23,10 @@ interface Appointment {
   guest: {
     full_name: string;
   } | null;
+  salon_name: string;
+  hair_salon: {
+    name: string;
+  } | null;
 }
 
 export default function Appointments() {
@@ -30,6 +34,7 @@ export default function Appointments() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [groupedAppointments, setGroupedAppointments] = useState<Record<string, Appointment[]>>({});
 
   const fetchAppointments = async () => {
     if (!session?.user) return;
@@ -51,6 +56,9 @@ export default function Appointments() {
           ),
           guest:guests!appointments_guest_id_fkey (
             full_name
+          ),
+          hair_salon:salon_id (
+            name
           )
         `)
         .eq('user_id', session.user.id)
@@ -64,7 +72,8 @@ export default function Appointments() {
         return {
           ...appointment,
           service: Array.isArray(appointment.service) ? appointment.service[0] : appointment.service,
-          guest: Array.isArray(appointment.guest) ? appointment.guest[0] : appointment.guest
+          guest: Array.isArray(appointment.guest) ? appointment.guest[0] : appointment.guest,
+          hair_salon: Array.isArray(appointment.hair_salon) ? appointment.hair_salon[0] : appointment.hair_salon
         };
       }) as Appointment[];
 
@@ -86,6 +95,20 @@ export default function Appointments() {
   useEffect(() => {
     fetchAppointments();
   }, []);
+
+  useEffect(() => {
+    // Group appointments by date
+    const grouped = appointments.reduce((acc, appointment) => {
+      const date = appointment.appointment_date;
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(appointment);
+      return acc;
+    }, {} as Record<string, Appointment[]>);
+    
+    setGroupedAppointments(grouped);
+  }, [appointments]);
 
   const handleNewBooking = () => {
     router.push('/tabs');
@@ -168,6 +191,13 @@ export default function Appointments() {
     return 'Yourself';
   };
 
+  const formatDateHeader = (date: string) => {
+    const parsedDate = parseISO(date);
+    if (isToday(parsedDate)) return 'Today';
+    if (isTomorrow(parsedDate)) return 'Tomorrow';
+    return format(parsedDate, 'MMMM d, yyyy');
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>
@@ -178,130 +208,99 @@ export default function Appointments() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <Surface style={styles.header} elevation={0}>
-          <Text variant="headlineMedium" style={styles.title}>
-            Your Appointments
-          </Text>
-        </Surface>
+      <Surface style={styles.header} elevation={2}>
+        <Text variant="headlineMedium">My Appointments</Text>
+      </Surface>
 
-        <View style={styles.content}>
-          {appointments.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons 
-                name="calendar-blank" 
-                size={64} 
-                color={COLORS.textSecondary} 
-              />
-              <Text variant="titleMedium" style={styles.emptyText}>
-                No upcoming appointments
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : appointments.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons name="calendar-blank" size={64} color={COLORS.primary} />
+          <Text variant="titleMedium" style={styles.emptyText}>No appointments yet</Text>
+          <Button 
+            mode="contained" 
+            onPress={() => router.push('/booking')}
+            style={styles.bookButton}
+          >
+            Book Now
+          </Button>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView}>
+          {/* Group appointments by date */}
+          {Object.entries(groupedAppointments).map(([date, appointments]) => (
+            <View key={date} style={styles.dateGroup}>
+              <Text variant="titleSmall" style={styles.dateHeader}>
+                {formatDateHeader(date)}
               </Text>
-              <Button
-                mode="contained"
-                onPress={handleNewBooking}
-                style={styles.newBookingButton}
-              >
-                Book New Appointment
-              </Button>
-            </View>
-          ) : (
-            appointments.map((appointment) => (
-              <Card key={appointment.id} style={styles.appointmentCard} mode="elevated">
-                <Card.Content>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.serviceIcon}>
-                      <MaterialCommunityIcons 
-                        name="content-cut" 
-                        size={24} 
-                        color={COLORS.primary} 
-                      />
-                    </View>
-                    <View style={styles.headerText}>
-                      <Text variant="titleMedium" style={styles.serviceName}>
-                        {appointment.service?.name
-                          ? appointment.service.name
-                          : 'Service Unavailable'}
-                      </Text>
-                      <Text variant="bodyMedium" style={styles.guestName}>
-                        For: {getAppointmentFor(appointment)}
-                      </Text>
-                    </View>
-                    <Chip
-                      mode="flat"
-                      textStyle={{ color: 'white' }}
-                      style={[styles.statusChip, { backgroundColor: getStatusColor(appointment.status) }]}
-                    >
-                      {appointment.status}
-                    </Chip>
-                  </View>
-
-                  <View style={styles.appointmentDetails}>
-                    <View style={styles.detailRow}>
-                      <MaterialCommunityIcons 
-                        name="calendar" 
-                        size={20} 
-                        color={COLORS.textSecondary} 
-                      />
-                      <Text variant="bodyLarge" style={styles.detailText}>
-                        {formatAppointmentDate(appointment.appointment_date)}
-                      </Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <MaterialCommunityIcons 
-                        name="clock-outline" 
-                        size={20} 
-                        color={COLORS.textSecondary} 
-                      />
-                      <Text variant="bodyLarge" style={styles.detailText}>
-                        {format(parseISO(`${appointment.appointment_date}T${appointment.start_time}`), 'h:mm a')} - 
-                        {format(parseISO(`${appointment.appointment_date}T${appointment.end_time}`), 'h:mm a')}
-                      </Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <MaterialCommunityIcons 
-                        name="currency-usd" 
-                        size={20} 
-                        color={COLORS.textSecondary} 
-                      />
-                      <Text variant="bodyLarge" style={styles.detailText}>
+              {appointments.map(appointment => (
+                <Card 
+                  key={appointment.id} 
+                  style={styles.appointmentCard} 
+                  mode="elevated"
+                >
+                  <Card.Content>
+                    <View style={styles.appointmentHeader}>
+                      <View style={styles.serviceInfo}>
+                        <Text variant="titleMedium" style={styles.serviceName}>
+                          {appointment.service?.name}
+                        </Text>
+                        <Chip 
+                          mode="flat" 
+                          style={[styles.statusChip, { backgroundColor: getStatusColor(appointment.status) }]}
+                        >
+                          {appointment.status}
+                        </Chip>
+                      </View>
+                      <Text variant="titleMedium" style={styles.price}>
                         ${appointment.total_price.toFixed(2)}
                       </Text>
                     </View>
-                  </View>
 
-                  {appointment.status === 'confirmed' && (
-                    <View style={styles.actionButtons}>
-                      <Button
-                        mode="outlined"
-                        onPress={() => handleCancelAppointment(appointment.id)}
-                        style={styles.cancelButton}
-                        textColor={COLORS.error}
-                      >
-                        Cancel Appointment
-                      </Button>
+                    <View style={styles.appointmentDetails}>
+                      <View style={styles.detailRow}>
+                        <MaterialCommunityIcons name="store" size={18} color={COLORS.primary} />
+                        <Text variant="bodyMedium" style={styles.detailText}>
+                          {appointment.hair_salon?.name}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <MaterialCommunityIcons name="clock" size={18} color={COLORS.primary} />
+                        <Text variant="bodyMedium" style={styles.detailText}>
+                          {format(parseISO(`${appointment.appointment_date}T${appointment.start_time}`), 'h:mm a')}
+                        </Text>
+                      </View>
+                      {appointment.guest_id && appointment.guest && (
+                        <View style={styles.detailRow}>
+                          <MaterialCommunityIcons name="account" size={18} color={COLORS.primary} />
+                          <Text variant="bodyMedium" style={styles.detailText}>
+                            Guest: {appointment.guest.full_name}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
 
-                  {appointment.status === 'confirmed' &&
-                    isAppointmentPast(appointment.appointment_date, appointment.end_time) && (
-                    <View style={styles.completeButton}>
-                      <Button
-                        mode="contained"
-                        onPress={() => handleComplete(appointment.id)}
-                        style={styles.completeButton}
-                      >
-                        Mark as Completed
-                      </Button>
-                    </View>
-                  )}
-                </Card.Content>
-              </Card>
-            ))
-          )}
-        </View>
-      </ScrollView>
+                    {appointment.status === 'confirmed' && (
+                      <View style={styles.actionButtons}>
+                        <Button 
+                          mode="outlined" 
+                          onPress={() => handleCancelAppointment(appointment.id)}
+                          style={styles.actionButton}
+                        >
+                          Cancel
+                        </Button>
+                      </View>
+                    )}
+                  </Card.Content>
+                </Card>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -317,88 +316,87 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SPACING.lg,
-    paddingTop: SPACING.xl,
     backgroundColor: COLORS.surface,
-    borderBottomLeftRadius: BORDER_RADIUS.xl,
-    borderBottomRightRadius: BORDER_RADIUS.xl,
+  },
+  scrollView: {
+    flex: 1,
+    padding: SPACING.md,
+  },
+  dateGroup: {
     marginBottom: SPACING.lg,
   },
-  title: {
-    color: COLORS.text,
-    fontWeight: '600',
-  },
-  content: {
-    padding: SPACING.lg,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  emptyText: {
+  dateHeader: {
+    marginBottom: SPACING.sm,
     color: COLORS.textSecondary,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  newBookingButton: {
-    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.xs,
   },
   appointmentCard: {
-    marginBottom: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
     backgroundColor: COLORS.surface,
   },
-  cardHeader: {
+  appointmentHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: SPACING.md,
   },
-  serviceIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
+  serviceInfo: {
+    flex: 1,
     marginRight: SPACING.md,
   },
-  headerText: {
-    flex: 1,
-  },
   serviceName: {
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  guestName: {
-    color: COLORS.textSecondary,
-    marginTop: 2,
+    marginBottom: SPACING.xs,
   },
   statusChip: {
-    borderRadius: BORDER_RADIUS.round,
+    alignSelf: 'flex-start',
+    marginTop: SPACING.xs,
+  },
+  price: {
+    color: COLORS.primary,
   },
   appointmentDetails: {
-    marginTop: SPACING.md,
-    backgroundColor: COLORS.background,
+    gap: SPACING.xs,
+    backgroundColor: COLORS.surface,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
   },
   detailText: {
-    marginLeft: SPACING.sm,
-    color: COLORS.textSecondary,
+    flex: 1,
   },
   actionButtons: {
-    marginTop: SPACING.md,
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  actionButton: {
+    flex: 1,
   },
   cancelButton: {
     borderColor: COLORS.error,
   },
-  completeButton: {
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  emptyText: {
     marginTop: SPACING.md,
+    marginBottom: SPACING.lg,
+    color: COLORS.textSecondary,
+  },
+  bookButton: {
+    minWidth: 200,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -1,14 +1,11 @@
 import { useState, useRef } from 'react';
-import { StyleSheet, View, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button, Surface, Switch, ProgressBar, SegmentedButtons } from 'react-native-paper';
+import { StyleSheet, View, ScrollView, Alert, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { Text, TextInput, Button, Surface, Switch, ProgressBar, SegmentedButtons, Card, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { supabase } from '../../src/services/supabase';
 import { COLORS, SPACING, DESIGNER_COLORS } from '../../src/constants/theme';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import axios from 'axios';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -77,6 +74,8 @@ export default function SalonSetup({
   const [location, setLocation] = useState<Location | null>(null);
 
   const scrollViewRef = useRef<ScrollView | null>(null);
+
+  const [progressAnim] = useState(new Animated.Value(0));
 
   const colors = theme === 'designer' ? DESIGNER_COLORS : COLORS;
 
@@ -393,85 +392,120 @@ export default function SalonSetup({
   };
 
   const renderSalonStep = () => (
-    <View style={styles.form}>
-      <TextInput
-        label="Salon Name"
-        value={salonDetails.name}
-        onChangeText={(text) => setSalonDetails({ ...salonDetails, name: text })}
-        style={styles.input}
-      />
-      
-      <View style={styles.addressContainer}>
+    <Card>
+      <Card.Content>
         <TextInput
-          label="Address"
-          value={salonDetails.address}
-          onChangeText={(text) => setSalonDetails({ ...salonDetails, address: text })}
-          style={[styles.input, { flex: 1 }]}
+          label="Salon Name"
+          value={salonDetails.name}
+          onChangeText={(text) => setSalonDetails({ ...salonDetails, name: text })}
+          style={styles.input}
+          mode="outlined"
+          left={<TextInput.Icon icon="store" />}
         />
-        <Button
-          mode="contained"
-          onPress={getCurrentLocation}
-          loading={loading}
-          style={styles.locationButton}
-          icon={({ size, color }) => (
-            <MaterialCommunityIcons name="crosshairs-gps" size={size} color={color} />
-          )}
-        >
-          Get Location
-        </Button>
-      </View>
 
-      <TextInput
-        label="Phone"
-        value={salonDetails.phone}
-        onChangeText={(text) => setSalonDetails({ ...salonDetails, phone: text })}
-        style={styles.input}
-        keyboardType="phone-pad"
-      />
-      
-      <TextInput
-        label="Email"
-        value={salonDetails.email}
-        onChangeText={(text) => setSalonDetails({ ...salonDetails, email: text })}
-        style={styles.input}
-        keyboardType="email-address"
-      />
-    </View>
+        <View style={styles.addressContainer}>
+          <TextInput
+            label="Address"
+            value={salonDetails.address}
+            onChangeText={(text) => setSalonDetails({ ...salonDetails, address: text })}
+            style={[styles.input, styles.addressInput]}
+            mode="outlined"
+            left={<TextInput.Icon icon="map-marker" />}
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
+          />
+          <IconButton
+            icon="crosshairs-gps"
+            mode="contained"
+            size={24}
+            onPress={getCurrentLocation}
+            style={styles.locationButton}
+            loading={loading}
+          />
+        </View>
+
+        <TextInput
+          label="Phone"
+          value={salonDetails.phone}
+          onChangeText={(text) => setSalonDetails({ ...salonDetails, phone: text })}
+          style={styles.input}
+          keyboardType="phone-pad"
+          mode="outlined"
+          left={<TextInput.Icon icon="phone" />}
+        />
+        
+        <TextInput
+          label="Email"
+          value={salonDetails.email}
+          onChangeText={(text) => setSalonDetails({ ...salonDetails, email: text })}
+          style={styles.input}
+          keyboardType="email-address"
+          mode="outlined"
+          left={<TextInput.Icon icon="email" />}
+        />
+      </Card.Content>
+    </Card>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Surface style={[styles.header, { backgroundColor: colors.primary }]}>
-        <Text variant="headlineMedium" style={{ color: '#FFFFFF' }}>
-          {mode === 'setup' ? 'Salon Setup' : 'Add New Salon'}
-        </Text>
-        <ProgressBar 
-          progress={getStepProgress()} 
-          style={styles.progress}
-          color={colors.primary}
-        />
-      </Surface>
+    <SafeAreaView style={styles.container} edges={[]}>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <View style={styles.progressContainer}>
+            <ProgressBar 
+              progress={getStepProgress()} 
+              style={styles.progress}
+              color="#FFFFFF"
+            />
+            <Text style={styles.stepIndicator}>
+              Step {currentStep === 'salon' ? '1' : currentStep === 'hours' ? '2' : '3'} of 3
+            </Text>
+          </View>
+        </View>
 
-      <ScrollView style={styles.content}>
-        {currentStep === 'salon' && renderSalonStep()}
-        {currentStep === 'hours' && renderHoursStep()}
-        {currentStep === 'services' && renderServicesStep()}
-      </ScrollView>
-
-      <Surface style={[styles.footer, { backgroundColor: colors.surface }]}>
-        {currentStep !== 'salon' && (
-          <Button mode="outlined" onPress={handleBack}>
-            Back
-          </Button>
-        )}
-        <Button 
-          mode="contained" 
-          onPress={handleNext}
-          loading={loading}
+        <ScrollView 
+          style={styles.scrollContent} 
+          contentContainerStyle={styles.scrollContentContainer}
         >
-          {currentStep === 'services' ? 'Complete' : 'Next'}
-        </Button>
-      </Surface>
+          <View style={styles.cardWrapper}>
+            <Card>
+              <Card.Content>
+                {currentStep === 'salon' && renderSalonStep()}
+                {currentStep === 'hours' && renderHoursStep()}
+                {currentStep === 'services' && renderServicesStep()}
+              </Card.Content>
+            </Card>
+          </View>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <View style={styles.footerButtons}>
+            {currentStep !== 'salon' && (
+              <Button 
+                mode="outlined" 
+                onPress={handleBack}
+                style={styles.backButton}
+                labelStyle={styles.buttonLabel}
+              >
+                Back
+              </Button>
+            )}
+            <Button 
+              mode="contained" 
+              onPress={handleNext}
+              loading={loading}
+              style={[
+                styles.nextButton,
+                currentStep === 'salon' && styles.fullWidthButton
+              ]}
+              labelStyle={styles.buttonLabel}
+            >
+              {currentStep === 'services' ? 'Complete Setup' : 'Next Step'}
+            </Button>
+          </View>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -479,39 +513,88 @@ export default function SalonSetup({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    padding: SPACING.lg,
-    backgroundColor: COLORS.primary,
+    backgroundColor: DESIGNER_COLORS.primary,
   },
   content: {
     flex: 1,
-    padding: SPACING.lg,
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    padding: SPACING.md,
+    backgroundColor: DESIGNER_COLORS.primary,
+    elevation: 4,
+  },
+  progressContainer: {
+    marginTop: SPACING.xs,
+  },
+  progress: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  stepIndicator: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+    fontSize: 12,
   },
   scrollContent: {
-    padding: SPACING.lg,
+    flex: 1,
   },
-  segments: {
+  scrollContentContainer: {
+    padding: SPACING.md,
+  },
+  cardWrapper: {
+    elevation: 2,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  input: {
     marginBottom: SPACING.lg,
+    backgroundColor: '#FFFFFF',
+  },
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  locationButton: {
+    marginTop: 6,
+    backgroundColor: DESIGNER_COLORS.primary,
+    borderRadius: 20,
+  },
+  footer: {
+    padding: SPACING.md,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  backButton: {
+    flex: 1,
+    borderColor: DESIGNER_COLORS.primary,
+  },
+  nextButton: {
+    flex: 2,
+    height: 50,
+    justifyContent: 'center',
+    borderRadius: 25,
+    backgroundColor: DESIGNER_COLORS.primary,
+  },
+  fullWidthButton: {
+    flex: 1,
+  },
+  buttonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   form: {
     gap: SPACING.md,
     padding: SPACING.lg,
-  },
-  input: {
-    backgroundColor: COLORS.surface,
-    marginBottom: SPACING.md,
-  },
-  buttons: {
-    marginTop: SPACING.xl,
-    gap: SPACING.md,
-  },
-  button: {
-    padding: SPACING.sm,
-  },
-  progress: {
-    marginTop: SPACING.md,
   },
   hourRow: {
     marginBottom: SPACING.xl,
@@ -549,23 +632,11 @@ const styles = StyleSheet.create({
   addButton: {
     marginTop: SPACING.md,
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
   typeSelector: {
     marginBottom: SPACING.md,
   },
-  addressContainer: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  locationButton: {
-    marginTop: 6, // Align with TextInput
+  addressInput: {
+    flex: 1,
+    minHeight: 80,
   },
 }); 

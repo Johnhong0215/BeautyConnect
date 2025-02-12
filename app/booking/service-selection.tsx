@@ -76,11 +76,6 @@ export default function ServiceSelection() {
             style={styles.card}
             onPress={() => {
               handleServiceSelect(service);
-              const today = new Date().toISOString().split('T')[0];
-              router.push({
-                pathname: '/booking/time-selection',
-                params: { date: today }
-              });
             }}
           >
             <Card.Content>
