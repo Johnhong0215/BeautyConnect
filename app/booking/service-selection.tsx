@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
-import { Text, Card, Surface, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Surface, ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useBooking } from '@/contexts/BookingContext';
 import { COLORS, SPACING } from '@/constants/theme';
 import { supabase } from '@/services/supabase';
+import { Gender } from '@/types/database';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Service {
   id: string;
@@ -19,13 +21,25 @@ interface Service {
   salon_id: string;
 }
 
+interface Guest {
+  id: string;
+  full_name: string;
+  age: number;
+  gender: Gender;
+  hair_length: string;
+  created_at: string;
+}
+
 export default function ServiceSelection() {
-  const { selectedSalon, handleServiceSelect } = useBooking();
+  const { selectedSalon, handleServiceSelect, guestId } = useBooking();
+  const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<Service[]>([]);
+  const [gender, setGender] = useState<'male' | 'female'>('male');
 
   useEffect(() => {
     loadSalonServices();
+    fetchGender();
   }, [selectedSalon]);
 
   const loadSalonServices = async () => {
@@ -47,6 +61,28 @@ export default function ServiceSelection() {
       console.error('Error loading services:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGender = async () => {
+    try {
+      if (guestId) {
+        const { data: guest } = await supabase
+          .from('guests')
+          .select('gender')
+          .eq('id', guestId)
+          .single();
+        if (guest?.gender) setGender(guest.gender);
+      } else if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('gender')
+          .eq('id', session.user.id)
+          .single();
+        if (profile?.gender) setGender(profile.gender);
+      }
+    } catch (error) {
+      console.error('Error fetching gender:', error);
     }
   };
 
@@ -74,24 +110,26 @@ export default function ServiceSelection() {
           <Card
             key={service.id}
             style={styles.card}
-            onPress={() => {
-              handleServiceSelect(service);
-            }}
           >
             <Card.Content>
-              <Text variant="titleMedium">{service.name}</Text>
+              <Text variant="titleLarge">{service.name}</Text>
               {service.description && (
                 <Text variant="bodyMedium">{service.description}</Text>
               )}
               <View style={styles.serviceDetails}>
                 <Text variant="bodyLarge">
-                  ${service.price_male}
+                  Duration: {gender === 'male' ? service.duration_male : service.duration_female} mins
                 </Text>
-                <Text variant="bodyMedium">
-                  {service.duration_male} mins
+                <Text variant="bodyLarge">
+                  Price: ${gender === 'male' ? service.price_male : service.price_female}
                 </Text>
               </View>
             </Card.Content>
+            <Card.Actions>
+              <Button onPress={() => {
+                handleServiceSelect(service);
+              }}>Select</Button>
+            </Card.Actions>
           </Card>
         ))}
       </ScrollView>

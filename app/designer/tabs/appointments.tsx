@@ -12,7 +12,7 @@ import { supabase } from '../../../src/services/supabase';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { SPACING } from '../../../src/constants/theme';
 import { DESIGNER_COLORS } from '../../../src/constants/colors';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface Appointment {
   id: string;
@@ -154,6 +154,11 @@ export default function DesignerAppointments() {
     }
   };
 
+  const formatAppointmentDate = (dateStr: string) => {
+    const date = parseISO(dateStr);
+    return format(date, 'MMM d, yyyy');
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -199,10 +204,7 @@ export default function DesignerAppointments() {
 
               <View style={styles.appointmentDetails}>
                 <Text variant="bodyMedium" style={styles.detail}>
-                  {format(
-                    new Date(appointment.appointment_date),
-                    'MMM dd, yyyy'
-                  )}
+                  {formatAppointmentDate(appointment.appointment_date)}
                 </Text>
                 <Text variant="bodyMedium" style={styles.detail}>
                   {appointment.start_time} - {appointment.end_time}

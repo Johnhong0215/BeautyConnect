@@ -39,10 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // First try to get session from storage
     const initSession = async () => {
       try {
-        // Get session from storage first
-        const storedSession = await AsyncStorage.getItem('userSession');
+        const storedSession = await AsyncStorage.getItem('session');
         if (storedSession) {
           setSession(JSON.parse(storedSession));
         }
@@ -51,10 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (currentSession) {
           setSession(currentSession);
-          await AsyncStorage.setItem('userSession', JSON.stringify(currentSession));
+          await AsyncStorage.setItem('session', JSON.stringify(currentSession));
         }
       } catch (error) {
-        console.error('Session initialization error:', error);
+        console.error('Error initializing session:', error);
       } finally {
         setIsLoading(false);
       }
@@ -62,19 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log('Auth state changed:', event);
-
-      if (event === 'SIGNED_IN' && newSession) {
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      if (newSession) {
         setSession(newSession);
-        await AsyncStorage.setItem('userSession', JSON.stringify(newSession));
-      } else if (event === 'SIGNED_OUT') {
+        await AsyncStorage.setItem('session', JSON.stringify(newSession));
+      } else {
         setSession(null);
-        await AsyncStorage.removeItem('userSession');
-        router.replace('/auth/sign-in');
-      } else if (event === 'TOKEN_REFRESHED' && newSession) {
-        setSession(newSession);
-        await AsyncStorage.setItem('userSession', JSON.stringify(newSession));
+        await AsyncStorage.removeItem('session');
       }
     });
 
@@ -84,8 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    if (data.session) {
+      await AsyncStorage.setItem('session', JSON.stringify(data.session));
+    }
   };
 
   const signUp = async (email: string, password: string): Promise<AuthResponse> => {
@@ -97,8 +95,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    await supabase.auth.signOut();
+    await AsyncStorage.removeItem('session');
+    router.replace('/auth/sign-in');
   };
 
   const handleSwitchMode = async (mode: 'user' | 'designer') => {

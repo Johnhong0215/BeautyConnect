@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/services/supabase';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Database } from '../../src/types/supabase';
 import { useBooking } from '../../src/contexts/BookingContext';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../src/constants/theme';
@@ -70,6 +70,12 @@ export default function Confirmation() {
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = parseISO(dateStr);
+    return format(date, 'MMMM d, yyyy');
+  };
+
   const handleConfirm = async () => {
     try {
       if (!selectedTimeSlot) {
@@ -125,7 +131,7 @@ export default function Confirmation() {
 
         <Text variant="titleMedium" style={styles.section}>Date</Text>
         <Text style={styles.detail}>
-          {params.date && format(new Date(params.date), 'MMMM d, yyyy')}
+          {params.date && formatDate(params.date)}
         </Text>
 
         <Text variant="titleMedium" style={styles.section}>Time</Text>
