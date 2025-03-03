@@ -9,7 +9,7 @@ export default function BookingLayout() {
   return (
     <Stack
       screenOptions={{
-        headerSafeAreaInsets: { top: insets.top },
+        contentStyle: { paddingTop: insets.top },
         headerLeft: () => (
           <IconButton
             icon="arrow-left"

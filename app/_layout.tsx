@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Stack, Slot, useRouter, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import { MD3LightTheme, PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import { AuthProvider } from '../src/contexts/AuthContext';
 import { BookingProvider } from '../src/contexts/BookingContext';
 import LottieView from 'lottie-react-native';
 import { View, StyleSheet, Dimensions } from 'react-native';
@@ -20,35 +20,6 @@ const theme = {
     text: COLORS.text,
   },
 };
-
-// Auth guard component
-function AuthGuard() {
-  const { session, isLoading } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    const inAuthGroup = segments[0] === 'auth';
-    const isDesignerRoute = segments[0] === 'designer';
-    const isUserRoute = segments[0] === 'user';
-    
-    if (!session && !inAuthGroup) {
-      router.replace('/auth/sign-in');
-    } else if (session) {
-      if (inAuthGroup) {
-        // Default to user mode after login
-        router.replace('/user/tabs');
-      } else if (!isDesignerRoute && !isUserRoute) {
-        // Redirect to appropriate section if not already there
-        router.replace('/user/tabs');
-      }
-    }
-  }, [session, isLoading, segments]);
-
-  return <Slot />;
-}
 
 export default function RootLayout() {
   const [isLoading, setIsLoading] = useState(true);
@@ -82,7 +53,7 @@ export default function RootLayout() {
           <ModeProvider>
             <AuthProvider>
               <BookingProvider>
-                <AuthGuard />
+                <Stack screenOptions={{ headerShown: false }} />
               </BookingProvider>
             </AuthProvider>
           </ModeProvider>
